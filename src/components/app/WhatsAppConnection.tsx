@@ -52,9 +52,8 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     setError(result.error || 'Erro ao verificar status.');
                     setIsCheckingStatus(false);
                     stopPolling();
-                } else if (result.state === 'DISCONNECTED' || result.state === 'SCAN_QR_CODE') {
-                    // If it becomes disconnected while polling, maybe try to fetch QR again or show error.
-                    // For now, we just keep polling.
+                } else if (result.state === 'DISCONNECTED') {
+                    // Continue polling in case it's a temporary disconnection
                 }
             } catch (e: any) {
                 setError(e.message || 'Falha ao verificar o estado da conexão.');
@@ -145,7 +144,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                         {qrCode && !isConnected && (
                             <div className="text-center space-y-4">
                                 <Image
-                                    src={`data:image/png;base64,${qrCode}`}
+                                    src={`${qrCode}`}
                                     alt="QR Code do WhatsApp"
                                     width={300}
                                     height={300}
@@ -168,3 +167,5 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
 
     
 
+
+    

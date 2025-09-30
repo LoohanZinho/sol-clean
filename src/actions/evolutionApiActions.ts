@@ -588,9 +588,7 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
         
         // Se a resposta tiver um campo "base64", esse é o nosso QR Code
         if (connectResponse.data?.base64) {
-             const base64Image = connectResponse.data.base64.startsWith('data:image/png;base64,')
-                ? connectResponse.data.base64.split(',')[1]
-                : connectResponse.data.base64;
+             const base64Image = connectResponse.data.base64;
              return { success: true, qrCode: base64Image };
         }
 
@@ -642,8 +640,12 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
         }
         
         // Trata 'connecting' como um estado de espera, não um sucesso final.
-        if (state === 'DISCONNECTED' || state === 'SCAN_QR_CODE' || state === 'connecting') {
+        if (state === 'connecting' || state === 'SCAN_QR_CODE') {
             return { state };
+        }
+
+        if (state === 'close') {
+            return { state: 'DISCONNECTED' };
         }
         
         return { state: 'DISCONNECTED' };
@@ -663,6 +665,8 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
         return { state: 'ERROR', error: errorMessage };
     }
 }
+    
+
     
 
     
