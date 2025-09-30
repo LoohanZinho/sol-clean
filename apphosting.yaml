@@ -1,0 +1,49 @@
+# Settings for Backend (on Cloud Run).
+# See https://firebase.google.com/docs/app-hosting/configure#cloud-run
+runConfig:
+  # Mantém no mínimo 1 instância ativa para evitar "cold starts" e garantir respostas rápidas.
+  minInstances: 0
+  # Aumenta a CPU para 4 para dar mais poder de processamento à IA.
+  cpu: 4
+  # Aumenta a memória para 8GiB para lidar com processos mais complexos.
+  memoryMiB: 8192
+  # Mantém um tempo limite alto para acomodar processos de IA.
+  timeoutSeconds: 120
+  concurrency: 80
+  # Pass the public URL of the App Hosting backend to the server
+  # as an environment variable.
+  # See https://firebase.google.com/docs/app-hosting/configure-backend#environment-variables
+  env:
+    - variable: NEXT_PUBLIC_BASE_URL
+      value: __APP_URL__
+
+# Required permissions for the backend to access Google Cloud services
+iam:
+  serviceAccount:
+    roles:
+      # Grant permission to use Vertex AI services (including Gemini)
+      - roles/aiplatform.user
+      # Grant permission to read and write to Firestore
+      - roles/datastore.user
+      # Permite que o serviço acesse segredos no Secret Manager
+      - roles/secretmanager.secretAccessor
+      # Allow access to Google Calendar API
+      - roles/calendar.admin
+
+# Network settings for the backend.
+# See https://firebase.google.com/docs/app-hosting/configure#network
+networkConfig:
+  # Allow all outbound traffic
+  egress: all
+  # Allow traffic from both internal sources and the GCLB
+  ingress: internal-and-gclb
+
+# Make secrets available as environment variables.
+# See https://firebase.google.com/docs/app-hosting/configure#secrets
+secrets:
+  - secret: GEMINI_API_KEY
+    environmentVariable: GEMINI_API_KEY
+  - secret: GOOGLE_CLIENT_ID
+    environmentVariable: GOOGLE_CLIENT_ID
+  - secret: GOOGLE_CLIENT_SECRET
+    environmentVariable: GOOGLE_CLIENT_SECRET

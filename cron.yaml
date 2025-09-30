@@ -1,0 +1,9 @@
+
+cron:
+- description: "Processa follow-ups automáticos para conversas inativas"
+  url: /api/cron/process-follow-ups
+  schedule: "every 1 hours"
+  retry_config:
+    retry_count: 2
+    min_backoff_seconds: 60
+    max_doublings: 4

@@ -1,0 +1,261 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 11%;  /* #111827 - Fundo principal (Cinza-Azulado Bem Escuro) */
+    --foreground: 210 40% 98%;  /* #f8fafc - Branco */
+
+    --card: 222 39% 16%;       /* #1f2937 - Cor dos cards e da barra lateral (Um pouco mais claro) */
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;      /* #3b82f6 - Azul vibrante para botões e destaques */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 91% 60%;    /* #3b82f6 - Cor do balão de mensagem do agente (Azul) */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 221 39% 28%;
+    --muted-foreground: 215 20% 65%; /* #a1a1aa - Cinza suave para textos secundários */
+    
+    --accent: 221 39% 28%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 221 39% 28%;
+    --input: 222 39% 22%;      /* #2b3748 - Cor do campo de input */
+    --ring: 217 91% 60%;
+
+    --radius: 0.8rem;
+  }
+ 
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 39% 16%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 91% 60%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 221 39% 28%;
+    --muted-foreground: 215 20% 65%;
+    
+    --accent: 221 39% 28%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 221 39% 28%;
+    --input: 222 39% 22%;
+    --ring: 217 91% 60%;
+  }
+
+  /* Experimental Theme: iOS 18 Style */
+  .theme-experimental {
+      --background: 10 0% 6%; /* #0f0f0f */
+      --foreground: 0 0% 96%; /* #f5f5f5 */
+
+      --card: 0 0% 10%; /* #1a1a1a - base for glass */
+      --card-foreground: 0 0% 96%;
+
+      --popover: 0 0% 10%;
+      --popover-foreground: 0 0% 96%;
+
+      --primary: 196 100% 50%; /* #00BFFF */
+      --primary-foreground: 0 0% 6%;
+
+      --secondary: 0 0% 100% / 0.05; /* white/5 */
+      --secondary-foreground: 0 0% 96%;
+
+      --muted: 0 0% 100% / 0.1;
+      --muted-foreground: 0 0% 75%; /* #c0c0c0 */
+
+      --accent: 0 0% 100% / 0.1;
+      --accent-foreground: 0 0% 96%;
+
+      --border: 0 0% 100% / 0.08;
+      --input: 0 0% 10%; /* #1a1a1a */
+      --ring: 196 100% 50%; /* #00BFFF */
+
+      --radius: 1rem; /* rounded-2xl */
+  }
+
+  /* Light Theme */
+  .theme-light {
+    --background: 210 20% 98%;   /* #f8f9fa - Fundo principal mais suave */
+    --foreground: 215 28% 17%;   /* #212529 - Texto principal escuro */
+
+    --card: 0 0% 100%;            /* #ffffff - Cards e sidebar brancos */
+    --card-foreground: 215 28% 17%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 17%;
+
+    --primary: 217 91% 60%;      /* #346df1 - Azul padrão */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 16% 93%;    /* #e9ecef - Fundo do item ativo na sidebar */
+    --secondary-foreground: 215 28% 17%;
+
+    --muted: 210 16% 93%;
+    --muted-foreground: 216 12% 44%;  /* #6c757d - Texto secundário */
+
+    --accent: 210 16% 90%;       /* #dee2e6 - Hover suave */
+    --accent-foreground: 215 28% 17%;
+
+    --destructive: 354 70% 54%;    /* #d94854 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 91%;       /* #e5e7eb */
+    --input: 0 0% 100%;           /* Input branco */
+    --ring: 217 91% 60%;
+
+    --radius: 0.8rem;
+  }
+
+  /* Solarized Dark Theme */
+  .theme-solarized-dark {
+    --background: 195 35% 10%; /* #002b36 */
+    --foreground: 195 15% 65%; /* #839496 */
+
+    --card: 195 45% 14%; /* #073642 */
+    --card-foreground: 195 15% 65%;
+
+    --popover: 195 45% 14%;
+    --popover-foreground: 195 15% 65%;
+
+    --primary: 196 78% 44%; /* #268bd2 */
+    --primary-foreground: 195 35% 10%;
+
+    --secondary: 195 45% 14%;
+    --secondary-foreground: 195 15% 65%;
+
+    --muted: 195 25% 20%; /* #2a4147 */
+    --muted-foreground: 195 10% 50%; /* #6c7a7c */
+
+    --accent: 195 25% 22%; /* #2e4a52 */
+    --accent-foreground: 195 15% 75%; /* #93a1a1 */
+
+    --destructive: 356 66% 51%; /* #dc322f */
+    --destructive-foreground: 195 35% 10%;
+
+    --border: 195 25% 20%;
+    --input: 195 25% 20%;
+    --ring: 196 78% 44%;
+
+    --radius: 0.8rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+  }
+  
+  /* Reduz o tamanho da fonte e espaçamentos em telas pequenas */
+  @media (max-width: 640px) {
+    body {
+      font-size: 14px;
+    }
+    .p-4 {
+      padding: 0.75rem; /* 12px */
+    }
+     .p-6 {
+      padding: 1rem; /* 16px */
+    }
+    .p-8 {
+      padding: 1.25rem; /* 20px */
+    }
+    .mb-8 {
+        margin-bottom: 1.5rem; /* 24px */
+    }
+    .gap-4 {
+        gap: 0.75rem; /* 12px */
+    }
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background) / 0.5);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--accent));
+  }
+}
+
+/* Custom Glassmorphism background */
+@layer components {
+  .bg-glass {
+    @apply border border-white/5 bg-black/30 backdrop-blur-lg;
+  }
+
+  .theme-light .bg-glass {
+    @apply bg-transparent backdrop-blur-none border-0;
+  }
+  
+  .theme-light aside {
+      @apply bg-secondary;
+  }
+
+  .theme-light header {
+    @apply bg-background;
+  }
+  
+  .theme-light main > .bg-card {
+      @apply bg-white;
+  }
+
+  /* Glassmorphism for experimental theme */
+  .theme-experimental .bg-glass {
+      @apply bg-card/80 backdrop-blur-md border shadow-md transition-all duration-300;
+  }
+
+  .theme-experimental .card, 
+  .theme-experimental .dialog-content {
+      @apply bg-card/80 backdrop-blur-lg rounded-2xl;
+  }
+
+  .theme-experimental .button-primary {
+      @apply bg-primary text-primary-foreground font-semibold rounded-full shadow-md hover:bg-primary/90 transition active:scale-95;
+  }
+
+  .theme-experimental .button-secondary {
+      @apply bg-white/5 backdrop-blur border border-white/10 text-white rounded-full hover:bg-white/10 transition;
+  }
+  
+  .theme-experimental .input-modern {
+      @apply bg-input border border-border rounded-xl px-4 py-2 text-foreground focus:ring-2 focus:ring-ring outline-none transition;
+  }
+}
