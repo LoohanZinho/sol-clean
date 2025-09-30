@@ -571,8 +571,8 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
                 headers: { 'Content-Type': 'application/json', 'apikey': apiKey }
             });
         } catch (error: any) {
-             // Se o erro for 'instance already exists', ignora e continua
-             if (axios.isAxiosError(error) && error.response?.status === 409) {
+             // Se o erro for 'instance already exists' (409 ou 403 com a mensagem certa), ignora e continua
+             if (axios.isAxiosError(error) && (error.response?.status === 409 || (error.response?.status === 403 && JSON.stringify(error.response.data).includes("is already in use")))) {
                  // Instância já existe, o que é bom. Continuamos para a etapa de conexão.
              } else {
                  // Relança qualquer outro erro da criação
