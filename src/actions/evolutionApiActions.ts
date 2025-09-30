@@ -596,7 +596,7 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
 
         // Se não houver 'base64', mas houver um status, podemos verificar se já está conectado
         const instanceStatus = connectResponse.data?.instance?.status;
-        if (instanceStatus === 'open' || instanceStatus === 'connecting') {
+        if (instanceStatus === 'open') {
              return { success: true, qrCode: 'CONNECTED' };
         }
 
@@ -621,7 +621,7 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
     }
 }
 
-export async function checkInstanceConnectionState(instanceName: string): Promise<{ state: 'CONNECTED' | 'DISCONNECTED' | 'SCAN_QR_CODE' | 'ERROR', error?: string }> {
+export async function checkInstanceConnectionState(instanceName: string): Promise<{ state: 'CONNECTED' | 'DISCONNECTED' | 'SCAN_QR_CODE' | 'connecting' | 'ERROR', error?: string }> {
     try {
         const credentials = await getGlobalEvolutionApiCredentials();
         if (!credentials) {
@@ -637,11 +637,12 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
         
         const state = response.data?.state;
 
-        if (state === 'open' || state === 'connecting') {
+        if (state === 'open') {
             return { state: 'CONNECTED' };
         }
         
-        if (state === 'DISCONNECTED' || state === 'SCAN_QR_CODE') {
+        // Trata 'connecting' como um estado de espera, não um sucesso final.
+        if (state === 'DISCONNECTED' || state === 'SCAN_QR_CODE' || state === 'connecting') {
             return { state };
         }
         
