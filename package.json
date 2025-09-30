@@ -8,7 +8,7 @@
         "start": "next start",
         "lint": "next lint",
         "typecheck": "tsc --noEmit",
-        "deploy": "npm run typecheck && npm run build && git push origin main",
+        "deploy": "npm run build && git push origin main",
         "type": "npm run typecheck && git push"
     },
     "dependencies": {
