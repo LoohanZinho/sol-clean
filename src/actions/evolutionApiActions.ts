@@ -620,6 +620,44 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
         return { success: false, error: errorMessage };
     }
 }
+
+export async function checkInstanceConnectionState(instanceName: string): Promise<{ state: 'CONNECTED' | 'DISCONNECTED' | 'SCAN_QR_CODE' | 'ERROR', error?: string }> {
+    try {
+        const credentials = await getGlobalEvolutionApiCredentials();
+        if (!credentials) {
+            throw new Error('Credenciais globais da Evolution API não estão configuradas.');
+        }
+
+        const { apiUrl, apiKey } = credentials;
+        const url = `${apiUrl.replace(/\/$/, '')}/instance/connectionState/${instanceName}`;
+        
+        const response = await axios.get(url, {
+             headers: { 'apikey': apiKey }
+        });
+        
+        const state = response.data?.state;
+
+        if (state === 'CONNECTED' || state === 'DISCONNECTED' || state === 'SCAN_QR_CODE') {
+            return { state };
+        }
+        
+        return { state: 'DISCONNECTED' };
+
+    } catch (error: any) {
+        let errorMessage = 'Ocorreu um erro ao verificar o estado da conexão.';
+        if (axios.isAxiosError(error) && error.response?.data) {
+             const apiError = error.response.data as any;
+             if (apiError.message && typeof apiError.message === 'string') {
+                 errorMessage = apiError.message;
+             } else {
+                 errorMessage = JSON.stringify(apiError);
+             }
+        } else if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+        return { state: 'ERROR', error: errorMessage };
+    }
+}
     
 
     

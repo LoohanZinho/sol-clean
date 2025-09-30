@@ -2,12 +2,12 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, QrCode, ServerCrash, CheckCircle } from 'lucide-react';
+import { Loader2, QrCode, ServerCrash, CheckCircle, RefreshCw } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
-import { createWhatsAppInstance } from '@/actions/evolutionApiActions';
+import { createWhatsAppInstance, checkInstanceConnectionState } from '@/actions/evolutionApiActions';
 import Image from 'next/image';
 
 interface WhatsAppConnectionProps {
@@ -21,6 +21,45 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
     const [error, setError] = useState<string | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
+    const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    const stopPolling = () => {
+        if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+        }
+    };
+    
+    useEffect(() => {
+        return () => {
+            stopPolling();
+        };
+    }, []);
+
+    const startPolling = () => {
+        stopPolling(); // Clear any existing interval
+        setIsCheckingStatus(true);
+        pollingIntervalRef.current = setInterval(async () => {
+            try {
+                const result = await checkInstanceConnectionState(userEmail);
+                if (result.state === 'CONNECTED') {
+                    setIsConnected(true);
+                    setQrCode(null);
+                    setIsCheckingStatus(false);
+                    stopPolling();
+                } else if (result.state === 'ERROR') {
+                    setError(result.error || 'Erro ao verificar status.');
+                    setIsCheckingStatus(false);
+                    stopPolling();
+                }
+            } catch (e: any) {
+                setError(e.message || 'Falha ao verificar o estado da conexão.');
+                setIsCheckingStatus(false);
+                stopPolling();
+            }
+        }, 5000); // Poll every 5 seconds
+    };
 
     const handleConnect = async () => {
         setIsLoading(true);
@@ -28,14 +67,18 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         setQrCode(null);
         setIsConnected(false);
         setIsDialogOpen(true);
+        stopPolling();
 
         try {
             const result = await createWhatsAppInstance(userEmail);
             if (result.success) {
                 if (result.qrCode === 'CONNECTED') {
                     setIsConnected(true);
+                } else if (result.qrCode) {
+                    setQrCode(result.qrCode);
+                    startPolling();
                 } else {
-                    setQrCode(result.qrCode || null);
+                    setError('Não foi possível obter o QR code da API.');
                 }
             } else {
                 setError(result.error || 'Ocorreu um erro desconhecido.');
@@ -63,7 +106,12 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                 Conectar ao WhatsApp
             </Button>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                if (!open) {
+                    stopPolling();
+                    setIsDialogOpen(false);
+                }
+            }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Conectar WhatsApp</DialogTitle>
@@ -83,18 +131,30 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                         {isConnected && (
                              <div className="text-center text-green-500">
                                 <CheckCircle className="h-12 w-12 mx-auto mb-2" />
-                                <p className="font-semibold">Já Conectado!</p>
-                                <p className="text-sm">Esta instância já está ativa. Atualize a página.</p>
+                                <p className="font-semibold">Conectado com Sucesso!</p>
+                                <p className="text-sm text-muted-foreground">Atualize a página para ver suas conversas.</p>
+                                <Button onClick={() => window.location.reload()} className="mt-4">
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Atualizar Página
+                                </Button>
                             </div>
                         )}
-                        {qrCode && (
-                            <Image
-                                src={`data:image/png;base64,${qrCode}`}
-                                alt="QR Code do WhatsApp"
-                                width={300}
-                                height={300}
-                                className="rounded-lg"
-                            />
+                        {qrCode && !isConnected && (
+                            <div className="text-center space-y-4">
+                                <Image
+                                    src={`data:image/png;base64,${qrCode}`}
+                                    alt="QR Code do WhatsApp"
+                                    width={300}
+                                    height={300}
+                                    className="rounded-lg"
+                                />
+                                {isCheckingStatus && (
+                                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground animate-pulse">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <span>Aguardando confirmação da conexão...</span>
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 </DialogContent>
