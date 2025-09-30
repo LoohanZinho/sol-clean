@@ -1,4 +1,5 @@
 
+
 'use server';
 
 /**
@@ -240,8 +241,7 @@ function splitMessageIntoChunks(message: string): string[] {
  * @param {string} userId - O ID do usuário.
  * @param {string} conversationId - O ID da conversa.
  * @param {string} instanceName - O nome da instância da Evolution API (email do usuário).
- * @param {object} aiOutput - O objeto de saída da IA, contendo a resposta de texto completa.
- * @param {string} aiOutput.response - O texto a ser enviado.
+ * @param {string} fullResponse - O texto completo a ser enviado.
  * @param {AppMessage} [messageToReplyTo] - A mensagem do cliente à qual a IA está respondendo (para citação).
  * @returns {Promise<boolean>} Uma promessa que resolve para `true` se o envio for bem-sucedido, `false` caso contrário.
  */
@@ -249,17 +249,15 @@ export async function handleAiMessageSend(
     userId: string,
     conversationId: string,
     instanceName: string,
-    aiOutput: { response: string },
+    fullResponse: string,
     messageToReplyTo?: AppMessage
 ): Promise<boolean> {
-    const { response: fullResponse } = aiOutput;
-    
     const adminFirestore = getAdminFirestore();
     const conversationRef = adminFirestore.collection('users').doc(userId).collection('conversations').doc(conversationId);
     
     try {
         if (!fullResponse || !fullResponse.trim()) {
-            await logSystemInfo(userId, 'handleAiMessageSend_empty', `Sem conteúdo para enviar para ${conversationId}. A IA pode ter usado uma ferramenta sem gerar texto.`, { conversationId, aiOutput });
+            await logSystemInfo(userId, 'handleAiMessageSend_empty', `Sem conteúdo para enviar para ${conversationId}. A IA pode ter usado uma ferramenta sem gerar texto.`, { conversationId, aiOutput: fullResponse });
             return true;
         }
 
