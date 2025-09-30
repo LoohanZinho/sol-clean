@@ -43,7 +43,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         pollingIntervalRef.current = setInterval(async () => {
             try {
                 const result = await checkInstanceConnectionState(userEmail);
-                if (result.state === 'CONNECTED') {
+                if (result.state === 'open') {
                     setIsConnected(true);
                     setQrCode(null);
                     setIsCheckingStatus(false);
@@ -52,7 +52,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     setError(result.error || 'Erro ao verificar status.');
                     setIsCheckingStatus(false);
                     stopPolling();
-                } else if (result.state === 'DISCONNECTED') {
+                } else if (result.state === 'close') {
                     // Continue polling in case it's a temporary disconnection
                 }
             } catch (e: any) {
@@ -169,3 +169,4 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
 
 
     
+

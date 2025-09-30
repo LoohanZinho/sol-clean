@@ -661,7 +661,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
     }
 }
 
-export async function checkInstanceConnectionState(instanceName: string): Promise<{ state: 'CONNECTED' | 'DISCONNECTED' | 'SCAN_QR_CODE' | 'connecting' | 'ERROR', error?: string }> {
+export async function checkInstanceConnectionState(instanceName: string): Promise<{ state: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' | 'ERROR', error?: string }> {
     try {
         const credentials = await getGlobalEvolutionApiCredentials();
         if (!credentials) {
@@ -677,19 +677,11 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
         
         const state = response.data?.state;
 
-        if (state === 'open') {
-            return { state: 'CONNECTED' };
+        if (state === 'open' || state === 'connecting' || state === 'SCAN_QR_CODE' || state === 'close') {
+            return { state };
         }
         
-        if (state === 'connecting' || state === 'SCAN_QR_CODE') {
-            return { state: state };
-        }
-
-        if (state === 'close') {
-            return { state: 'DISCONNECTED' };
-        }
-        
-        return { state: 'DISCONNECTED' };
+        return { state: 'close' }; // Default to 'close' if state is unknown
 
     } catch (error: any) {
         let errorMessage = 'Ocorreu um erro ao verificar o estado da conexão.';
