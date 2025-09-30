@@ -42,6 +42,12 @@ export async function sendMessageAction(input: SenderInput): Promise<SenderOutpu
         return { success: false, error };
     }
     
+    if (!operatorEmail) {
+        const error = 'sendMessageAction requer um email de operador para determinar a instância.';
+        await logSystemFailure(userId, 'sendMessageAction_no_email', { message: error }, { phone });
+        return { success: false, error };
+    }
+
     const adminFirestore = getAdminFirestore();
     const conversationRef = adminFirestore.collection('users').doc(userId).collection('conversations').doc(phone);
     
@@ -73,6 +79,7 @@ export async function sendMessageAction(input: SenderInput): Promise<SenderOutpu
             userId,
             phone,
             message,
+            instanceName: operatorEmail, // Usa o e-mail do usuário como nome da instância
             saveToHistory: true, // Garante que a mensagem do operador seja salva no histórico.
             source: source || 'operator',
             operatorEmail: operatorEmail,
