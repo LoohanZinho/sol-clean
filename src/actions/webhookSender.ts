@@ -310,6 +310,16 @@ async function triggerWebhook(userId: string, event: WebhookEvent, payload: any,
  */
 async function triggerWhatsAppMessage(userId: string, payload: any, phoneNumber: string, messageTemplate: string) {
     try {
+        const firestore = getAdminFirestore();
+        const userDoc = await firestore.collection('users').doc(userId).get();
+        if (!userDoc.exists) {
+            throw new Error(`Usuário ${userId} não encontrado para enviar notificação por WhatsApp.`);
+        }
+        const userEmail = userDoc.data()?.email;
+        if (!userEmail) {
+            throw new Error(`Email do usuário ${userId} não encontrado.`);
+        }
+
         // Compila o modelo Handlebars e preenche com os dados do payload.
         const template = Handlebars.compile(messageTemplate, { noEscape: true });
         const formattedMessage = template(payload);
@@ -318,6 +328,7 @@ async function triggerWhatsAppMessage(userId: string, payload: any, phoneNumber:
             userId,
             phone: phoneNumber,
             message: formattedMessage,
+            instanceName: userEmail,
             saveToHistory: false, // Não salva essas notificações no histórico de nenhuma conversa.
             source: 'system',
         });
