@@ -560,23 +560,42 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
 
         const { apiUrl, apiKey } = credentials;
         
-        // Etapa 1: Criar a instância e solicitar o QR Code
+        // Etapa 1: Criar ou verificar a instância
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
-        const createResponse = await axios.post(createUrl, {
-            instanceName: userEmail,
-            qrcode: true, // Solicita o QR Code diretamente na criação
-            integration: "WHATSAPP-BAILEYS"
-        }, {
-            headers: { 'Content-Type': 'application/json', 'apikey': apiKey }
+        try {
+             await axios.post(createUrl, {
+                instanceName: userEmail,
+                integration: "WHATSAPP-BAILEYS",
+                qrcode: true,
+             }, {
+                headers: { 'Content-Type': 'application/json', 'apikey': apiKey }
+            });
+        } catch (error: any) {
+             // Se o erro for 'instance already exists', ignora e continua
+             if (axios.isAxiosError(error) && error.response?.status === 409) {
+                 // Instância já existe, o que é bom. Continuamos para a etapa de conexão.
+             } else {
+                 // Relança qualquer outro erro da criação
+                 throw error;
+             }
+        }
+       
+        // Etapa 2: Obter o QR Code
+        const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
+        const connectResponse = await axios.get(connectUrl, {
+             headers: { 'apikey': apiKey }
         });
-
-        const instanceStatus = createResponse.data?.instance?.status;
-        if (instanceStatus === 'open' || instanceStatus === 'connecting') {
-             return { success: true, qrCode: 'CONNECTED' };
+        
+        // Se a resposta tiver um campo "code", esse é o nosso QR Code base64
+        if (connectResponse.data?.code && connectResponse.data.code.startsWith('data:image/png;base64,')) {
+             const base64Image = connectResponse.data.code.split(',')[1];
+             return { success: true, qrCode: base64Image };
         }
 
-        if (createResponse.data?.qrcode?.base64) {
-            return { success: true, qrCode: createResponse.data.qrcode.base64 };
+        // Se não houver 'code', mas houver um status, podemos verificar se já está conectado
+        const instanceStatus = connectResponse.data?.instance?.status;
+        if (instanceStatus === 'open' || instanceStatus === 'connecting') {
+             return { success: true, qrCode: 'CONNECTED' };
         }
 
         return { success: false, error: 'Não foi possível obter o QR code da API após criar a instância.' };
@@ -585,11 +604,14 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
         let errorMessage = 'Ocorreu um erro ao criar a instância.';
         if (axios.isAxiosError(error) && error.response?.data) {
              const apiError = error.response.data;
-             if (typeof apiError.message === 'string') {
-                errorMessage = apiError.message;
+             // Tentativa de extrair uma mensagem de erro mais útil
+             if (apiError.message && typeof apiError.message === 'string') {
+                 errorMessage = apiError.message;
+             } else if (apiError.response?.message && typeof apiError.response.message === 'string') {
+                 errorMessage = apiError.response.message;
              } else {
-                errorMessage = JSON.stringify(apiError);
-            }
+                 errorMessage = JSON.stringify(apiError);
+             }
         } else if (error instanceof Error) {
             errorMessage = error.message;
         }
