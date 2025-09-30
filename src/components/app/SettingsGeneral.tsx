@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -24,6 +22,7 @@ import {
 } from "@/components/ui/tooltip";
 import { AnimatePresence, motion } from 'framer-motion';
 import { Badge } from '../ui/badge';
+import { useEvolutionApiCredentials } from '@/hooks/useEvolutionApiCredentials';
 
 
 const ThemeSelector = ({ userId }: { userId: string }) => {
@@ -224,11 +223,14 @@ export const SettingsGeneral = ({ userId }: { userId: string }) => {
     const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
     const { settings: displaySettings, loading: displayLoading, updateSetting } = useDisplaySettings(userId);
+    const { credentials: userCredentials } = useEvolutionApiCredentials(userId);
 
     const [fontSize, setFontSize] = useState(displaySettings.chatFontSize);
     const isDevMode = automationSettings.isDevModeEnabled ?? false;
     const isGroupingToggleLocked = !isDevMode;
     const isApiKeyConfigured = !!aiProviderSettings.apiKey;
+    const isUserConnected = !!userCredentials;
+
 
     useEffect(() => {
         setFontSize(displaySettings.chatFontSize);
@@ -335,7 +337,7 @@ export const SettingsGeneral = ({ userId }: { userId: string }) => {
     const handleAutomationChange = async (field: keyof AutomationSettings, value: any) => {
         if (!userId) return;
 
-        if (field === 'isAiActive' && value === true && (!isPromptConfigured || !isApiKeyConfigured)) {
+        if (field === 'isAiActive' && value === true && (!isPromptConfigured || !isApiKeyConfigured || !isUserConnected)) {
             return;
         }
         
@@ -433,9 +435,11 @@ export const SettingsGeneral = ({ userId }: { userId: string }) => {
         return 'Experimental';
     };
     
-    const isAiSwitchDisabled = !isPromptConfigured || !isApiKeyConfigured || saving;
+    const isAiSwitchDisabled = !isPromptConfigured || !isApiKeyConfigured || !isUserConnected || saving;
     let aiSwitchTooltipContent = '';
-    if (!isApiKeyConfigured) {
+    if (!isUserConnected) {
+        aiSwitchTooltipContent = 'Conecte seu WhatsApp para ativar a IA.';
+    } else if (!isApiKeyConfigured) {
         aiSwitchTooltipContent = 'Configure sua chave de API na aba "Provedor IA" para ativar.';
     } else if (!isPromptConfigured) {
         aiSwitchTooltipContent = 'Configure o Agente de IA primeiro para poder ativar.';

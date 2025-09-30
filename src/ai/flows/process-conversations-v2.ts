@@ -1,5 +1,3 @@
-
-
 'use server';
 
 /**
@@ -272,12 +270,6 @@ Se NENHUMA ferramenta for necessária, use null para o campo "tool_request".
     logSystemFailure(userId, 'callConversationAI_no_apikey', { message: 'Chave de API não encontrada.' }, logContext);
     return;
   }
-  const userDoc = await firestore.collection('users').doc(userId).get();
-  const userEmail = userDoc.data()?.email;
-  if (!userEmail) {
-      logSystemFailure(userId, 'callConversationAI_no_email', { message: `Email do usuário ${userId} não encontrado para usar como instanceName.`}, logContext);
-      return;
-  }
 
   let modelsToTry = ALL_CONVERSATION_MODELS;
   const primary = ALL_CONVERSATION_MODELS.find(m => m.name.includes(userModel));
@@ -362,7 +354,7 @@ Se NENHUMA ferramenta for necessária, use null para o campo "tool_request".
 
       if (response_to_client && !useSilentTool) {
           logSystemInfo(userId, 'callConversationAI_text_before_tool', `Enviando resposta de texto.`, { ...logContext, response: response_to_client });
-          await handleAiMessageSend(userId, conversationId, userEmail, response_to_client, lastMessage);
+          await handleAiMessageSend(userId, conversationId, response_to_client, lastMessage);
           currentPrompt.push({text: `\nAssistente IA: ${response_to_client}`})
       } else if (response_to_client && useSilentTool) {
           logSystemInfo(userId, 'callConversationAI_text_omitted', `Resposta de texto foi omitida devido ao uso de ferramenta silenciosa '${tool_request.name}'.`, { ...logContext, omittedResponse: response_to_client });
@@ -384,7 +376,7 @@ Se NENHUMA ferramenta for necessária, use null para o campo "tool_request".
             if (tool_request.name === 'scheduleAppointmentTool') {
                 if (toolResult?.success && tool_request.args?.response_after_tool) {
                     logSystemInfo(userId, 'callConversationAI_schedule_success_break', 'Agendamento realizado com sucesso, enviando resposta pós-ferramenta.', logContext);
-                    await handleAiMessageSend(userId, conversationId, userEmail, tool_request.args.response_after_tool, lastMessage);
+                    await handleAiMessageSend(userId, conversationId, tool_request.args.response_after_tool, lastMessage);
                     break;
                 }
             }
@@ -393,7 +385,7 @@ Se NENHUMA ferramenta for necessária, use null para o campo "tool_request".
             if (tool_request.name === 'sendMediaMessageTool') {
                 if (toolResult?.success && tool_request.args?.response_after_tool) {
                     logSystemInfo(userId, 'callConversationAI_media_success_break', 'Mídia enviada, agora enviando resposta de texto pós-ferramenta.', logContext);
-                    await handleAiMessageSend(userId, conversationId, userEmail, tool_request.args.response_after_tool, lastMessage);
+                    await handleAiMessageSend(userId, conversationId, tool_request.args.response_after_tool, lastMessage);
                     break; 
                 }
             }

@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -51,8 +50,10 @@ export async function saveAiProviderSettings({ userId, apiKey }: { userId: strin
         if (apiKey && apiKey.trim() !== "") {
             const connectionStatusRef = firestore.collection('users').doc(userId).collection('settings').doc('connectionStatus');
             const connectionStatusSnap = await connectionStatusRef.get();
+            const userCredentialsSnap = await firestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials').get();
 
-            if (connectionStatusSnap.exists && (connectionStatusSnap.data() as ConnectionStatus).status === 'connected') {
+
+            if (connectionStatusSnap.exists && (connectionStatusSnap.data() as ConnectionStatus).status === 'connected' && userCredentialsSnap.exists()) {
                 const automationRef = firestore.collection('users').doc(userId).collection('settings').doc('automation');
                 const aiConfigRef = firestore.collection('users').doc(userId).collection('settings').doc('aiConfig');
                 

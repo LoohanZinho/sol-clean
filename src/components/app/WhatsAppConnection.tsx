@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -7,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Loader2, QrCode, ServerCrash, CheckCircle, RefreshCw } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
-import { createWhatsAppInstance, checkInstanceConnectionState } from '@/actions/evolutionApiActions';
+import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
 import Image from 'next/image';
 
 interface WhatsAppConnectionProps {
@@ -22,6 +20,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
     const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+    const [isFinalizing, setIsFinalizing] = useState(false);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const stopPolling = () => {
@@ -37,30 +36,44 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         };
     }, []);
 
+    const handleSuccessfulConnection = async () => {
+        stopPolling();
+        setIsCheckingStatus(false);
+        setIsFinalizing(true);
+        setQrCode(null);
+        try {
+            await fetchAndSaveInstanceApiKey(userId, userEmail);
+            setIsConnected(true);
+        } catch (e: any) {
+            setError(e.message || 'Falha ao salvar as credenciais da instância.');
+        } finally {
+            setIsFinalizing(false);
+        }
+    };
+
+
     const startPolling = () => {
-        stopPolling(); // Clear any existing interval
+        stopPolling(); 
         setIsCheckingStatus(true);
         pollingIntervalRef.current = setInterval(async () => {
             try {
                 const result = await checkInstanceConnectionState(userEmail);
                 if (result.state === 'open') {
-                    setIsConnected(true);
-                    setQrCode(null);
-                    setIsCheckingStatus(false);
-                    stopPolling();
+                    await handleSuccessfulConnection();
+                } else if (result.state === 'close') {
+                     // If it disconnects while waiting, try to get a new QR code.
+                    handleConnect();
                 } else if (result.state === 'ERROR') {
                     setError(result.error || 'Erro ao verificar status.');
                     setIsCheckingStatus(false);
                     stopPolling();
-                } else if (result.state === 'close') {
-                    // Continue polling in case it's a temporary disconnection
                 }
             } catch (e: any) {
                 setError(e.message || 'Falha ao verificar o estado da conexão.');
                 setIsCheckingStatus(false);
                 stopPolling();
             }
-        }, 5000); // Poll every 5 seconds
+        }, 5000);
     };
 
     const handleConnect = async () => {
@@ -74,8 +87,8 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         try {
             const result = await createWhatsAppInstance(userEmail, userId);
             if (result.success) {
-                if (result.qrCode === 'CONNECTED') {
-                    setIsConnected(true);
+                if (result.state === 'open') {
+                    await handleSuccessfulConnection();
                 } else if (result.qrCode) {
                     setQrCode(result.qrCode);
                     startPolling();
@@ -130,7 +143,14 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                                 <p className="text-sm">{error}</p>
                             </div>
                         )}
-                        {isConnected && (
+                        {isFinalizing && (
+                            <div className="text-center text-muted-foreground animate-pulse">
+                                <Loader2 className="h-12 w-12 mx-auto mb-2" />
+                                <p className="font-semibold">Finalizando conexão...</p>
+                                <p className="text-sm">Salvando credenciais da instância.</p>
+                            </div>
+                        )}
+                        {isConnected && !isFinalizing && (
                              <div className="text-center text-green-500">
                                 <CheckCircle className="h-12 w-12 mx-auto mb-2" />
                                 <p className="font-semibold">Conectado com Sucesso!</p>
@@ -141,7 +161,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                                 </Button>
                             </div>
                         )}
-                        {qrCode && !isConnected && (
+                        {qrCode && !isConnected && !isFinalizing && (
                             <div className="text-center space-y-4">
                                 <Image
                                     src={`${qrCode}`}
@@ -164,9 +184,3 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         </div>
     );
 };
-
-    
-
-
-    
-

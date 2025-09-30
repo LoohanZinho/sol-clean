@@ -1,5 +1,3 @@
-
-
 'use server';
 
 /**
@@ -75,11 +73,11 @@ export async function sendMessageAction(input: SenderInput): Promise<SenderOutpu
         }
         
         // Delega o envio real da mensagem para a função especializada.
+        // A função sendTextMessage agora usará as credenciais específicas do usuário.
         const sendResult = await sendTextMessage({
             userId,
             phone,
             message,
-            instanceName: operatorEmail, // Usa o e-mail do usuário como nome da instância
             saveToHistory: true, // Garante que a mensagem do operador seja salva no histórico.
             source: source || 'operator',
             operatorEmail: operatorEmail,

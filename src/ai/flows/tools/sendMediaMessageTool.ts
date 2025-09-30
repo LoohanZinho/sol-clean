@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 import { sendMediaMessage } from '@/actions/evolutionApiActions';
 import type { ToolDefinition, SerializableToolDefinition } from './index';
@@ -15,18 +14,9 @@ export const sendMediaMessageToolDef: ToolDefinition = {
     inputSchema: SendMediaMessageSchema,
     isSilent: true,
     fn: async (input: z.infer<typeof SendMediaMessageSchema>, context: { userId: string, conversationId: string }) => {
-        const firestore = getAdminFirestore();
-        const userDoc = await firestore.collection('users').doc(context.userId).get();
-        const instanceName = userDoc.data()?.email;
-
-        if (!instanceName) {
-            throw new Error(`Email do usuário (instanceName) não encontrado para userId: ${context.userId}`);
-        }
-
         return await sendMediaMessage({
             userId: context.userId,
             phone: context.conversationId,
-            instanceName,
             ...input,
         });
     }
@@ -37,5 +27,3 @@ export const sendMediaMessageSerializableToolDef: SerializableToolDefinition = {
     description,
     inputSchema: SendMediaMessageSchema,
 };
-
-    

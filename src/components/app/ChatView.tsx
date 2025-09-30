@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useRef, FormEvent, Suspense, useMemo } from 'react';
@@ -7,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useConversations } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
 import { useDisplaySettings } from '@/hooks/useDisplaySettings';
-import type { Conversation, AppMessage } from '@/lib/types';
+import type { Conversation, AppMessage, AiConfig, AiProviderSettings } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { sendMessageAction } from '@/actions/messageActions';
 import { logSystemInfo } from '@/ai/flows/system-log-helpers';
@@ -55,6 +53,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/
 import { ClientInfoPanel } from './ClientInfoPanel';
 import { WhatsAppConnection } from './WhatsAppConnection';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
+import { useEvolutionApiCredentials } from '@/hooks/useEvolutionApiCredentials';
 
 const EditClientDialog = dynamic(() => import('./EditClientDialog').then(mod => mod.EditClientDialog), {
     loading: () => <div className="p-4 flex justify-center"><Loader2 className="h-6 w-6 animate-pulse-subtle" /></div>
@@ -117,7 +116,8 @@ export const ChatView = ({ userId }: ChatViewProps) => {
     const [infoDialogOpen, setInfoDialogOpen] = useState(false);
     const [infoDialogMessage, setInfoDialogMessage] = useState({ title: '', description: '' });
     
-    const { connectionStatus } = useConnectionStatus(userId);
+    const { credentials: userCredentials } = useEvolutionApiCredentials(userId);
+    const isUserConnected = !!userCredentials;
 
     const allTags = useMemo(() => {
         const tagSet = new Set<string>();
@@ -151,7 +151,10 @@ export const ChatView = ({ userId }: ChatViewProps) => {
             const isPromptConfigured = aiConfigSnap.exists() && !!aiConfigSnap.data().fullPrompt;
             const isApiKeyConfigured = providerSnap.exists() && !!providerSnap.data().apiKey;
 
-            if (!isApiKeyConfigured) {
+            if (!isUserConnected) {
+                setIsAiReady(false);
+                setAiNotReadyReason('Conecte seu WhatsApp para ativar a IA.');
+            } else if (!isApiKeyConfigured) {
                 setIsAiReady(false);
                 setAiNotReadyReason('Configure sua chave de API na aba "Provedor IA" para ativar.');
             } else if (!isPromptConfigured) {
@@ -163,8 +166,6 @@ export const ChatView = ({ userId }: ChatViewProps) => {
             }
         };
 
-        checkPrerequisites();
-
         const unsubAiConfig = onSnapshot(doc(firestore, 'users', userId, 'settings', 'aiConfig'), checkPrerequisites);
         const unsubProvider = onSnapshot(doc(firestore, 'users', userId, 'settings', 'aiProvider'), checkPrerequisites);
 
@@ -172,7 +173,7 @@ export const ChatView = ({ userId }: ChatViewProps) => {
             unsubAiConfig();
             unsubProvider();
         };
-    }, [userId]);
+    }, [userId, isUserConnected]);
 
 
     useEffect(() => {
@@ -596,7 +597,7 @@ export const ChatView = ({ userId }: ChatViewProps) => {
     
     const renderCentralPane = () => {
         if (!selectedConversation) {
-            if (connectionStatus.status !== 'connected') {
+            if (!isUserConnected) {
                 return <WhatsAppConnection userId={userId} userEmail={userEmail} />;
             }
              if (!hasActiveConversations && !hasArchivedConversations && !conversationsLoading) {
@@ -664,13 +665,13 @@ export const ChatView = ({ userId }: ChatViewProps) => {
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    {isAiReady ? (
-                                        <p>{(selectedConversation.isAiActive ?? true) ? "IA está ativa para esta conversa" : "IA está inativa. Apenas o operador pode responder."}</p>
-                                    ) : (
+                                    {aiNotReadyReason ? (
                                         <div className="flex items-center gap-2">
                                             <KeyRound className="h-4 w-4"/>
                                             <p>{aiNotReadyReason}</p>
                                         </div>
+                                    ) : (
+                                        <p>{(selectedConversation.isAiActive ?? true) ? "IA está ativa para esta conversa" : "IA está inativa. Apenas o operador pode responder."}</p>
                                     )}
                                 </TooltipContent>
                             </Tooltip>

@@ -1,5 +1,3 @@
-
-
 'use server';
 
 /**
@@ -139,6 +137,26 @@ async function getGlobalEvolutionApiCredentials(): Promise<{ apiUrl: string; api
     }
 }
 
+async function getUserEvolutionApiCredentials(userId: string): Promise<{ apiUrl: string; apiKey: string; instanceName: string } | null> {
+    const adminFirestore = getAdminFirestore();
+    const docRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
+    const docSnap = await docRef.get();
+    
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data && data.apiUrl && data.apiKey && data.instanceName) {
+            return {
+                apiUrl: data.apiUrl,
+                apiKey: data.apiKey,
+                instanceName: data.instanceName,
+            };
+        }
+    }
+    // Fallback to global if user-specific are not found
+    return null;
+}
+
+
 
 /**
  * Busca a URL da foto de perfil de um contato do WhatsApp através da Evolution API.
@@ -152,9 +170,9 @@ export async function getProfilePictureUrl(userId: string, phone: string, instan
             logSystemInfo(userId, 'getProfilePictureUrl_invalid_phone', 'Número de telefone inválido fornecido.', { phone });
             return null;
         }
-        const credentials = await getGlobalEvolutionApiCredentials();
+        const credentials = await getUserEvolutionApiCredentials(userId);
         if (!credentials) {
-            logSystemFailure(userId, 'getProfilePictureUrl_no_creds', 'Credenciais da Evolution API não configuradas.', {});
+            logSystemFailure(userId, 'getProfilePictureUrl_no_creds', 'Credenciais da Evolution API não configuradas para o usuário.', {});
             return null;
         }
         const { apiUrl, apiKey } = credentials;
@@ -288,7 +306,7 @@ export async function sendPresence(params: {
     instanceName: string;
 }): Promise<boolean> {
     const { userId, phone, presence, delay: presenceDelay = 0, instanceName } = params;
-    const credentials = await getGlobalEvolutionApiCredentials();
+    const credentials = await getUserEvolutionApiCredentials(userId);
     if (!credentials) {
         logSystemFailure(userId, 'sendPresence_no_creds', { message: `Credenciais faltando para presence de ${phone}.` }, { phone, presence });
         return false;
@@ -326,7 +344,7 @@ export async function sendTextMessage(params: {
     userId: string;
     phone: string;
     message: string;
-    instanceName: string;
+    instanceName?: string;
     saveToHistory?: boolean;
     source?: 'ai' | 'operator' | 'system';
     operatorEmail?: string;
@@ -373,14 +391,15 @@ export async function sendTextMessage(params: {
         body.options.linkPreview = linkPreview;
     }
 
-    const credentials = await getGlobalEvolutionApiCredentials();
-    if (!credentials || !credentials.apiUrl || typeof credentials.apiUrl !== 'string') {
-        const error = 'Credenciais globais da Evolution API não estão totalmente configuradas.';
+    const credentials = await getUserEvolutionApiCredentials(userId);
+    if (!credentials) {
+        const error = 'Credenciais da Evolution API do usuário não encontradas.';
         await logSystemFailure(userId, 'sendTextMessage_no_creds_final', { message: error }, { phone });
         return { success: false, error };
     }
-    const { apiUrl, apiKey } = credentials;
-    const url = `${apiUrl.replace(/\/$/, '')}/message/sendText/${instanceName}`;
+    const { apiUrl, apiKey, instanceName: userInstanceName } = credentials;
+    const finalInstanceName = instanceName || userInstanceName;
+    const url = `${apiUrl.replace(/\/$/, '')}/message/sendText/${finalInstanceName}`;
 
     if (saveToHistory) {
         const messageData: AppMessage = {
@@ -444,7 +463,7 @@ export async function sendTextMessage(params: {
 export async function sendMediaMessage(params: {
     userId: string;
     phone: string;
-    instanceName: string;
+    instanceName?: string;
     mediatype: 'image' | 'video' | 'audio' | 'document';
     mediaUrls: string[];
     caption?: string;
@@ -457,13 +476,14 @@ export async function sendMediaMessage(params: {
         return { success: false, error: 'Nenhuma URL de mídia fornecida.' };
     }
     
-    const credentials = await getGlobalEvolutionApiCredentials();
+    const credentials = await getUserEvolutionApiCredentials(userId);
     if (!credentials) {
-        return { success: false, error: 'Credenciais da Evolution API não configuradas.' };
+        return { success: false, error: 'Credenciais da Evolution API do usuário não configuradas.' };
     }
     
-    const { apiUrl, apiKey } = credentials;
-    const url = `${apiUrl.replace(/\/$/, '')}/message/sendMedia/${instanceName}`;
+    const { apiUrl, apiKey, instanceName: userInstanceName } = credentials;
+    const finalInstanceName = instanceName || userInstanceName;
+    const url = `${apiUrl.replace(/\/$/, '')}/message/sendMedia/${finalInstanceName}`;
     
     let lastResult: EvolutionApiSendResult = { success: false, error: 'Nenhuma mídia foi enviada.' };
 
@@ -593,7 +613,7 @@ export async function setWebhookForInstance(instanceName: string, userId: string
 }
 
 
-export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; qrCode?: string; error?: string }> {
+export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; qrCode?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' }> {
     try {
         const credentials = await getGlobalEvolutionApiCredentials();
         if (!credentials) {
@@ -602,7 +622,6 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
         const { apiUrl, apiKey } = credentials;
         
-        // Etapa 1: Criar ou verificar a instância
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
         try {
              await axios.post(createUrl, {
@@ -614,31 +633,26 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
             });
             await setWebhookForInstance(userEmail, userId);
         } catch (error: any) {
-             // Se o erro for 'instance already exists' (409 ou 403 com a mensagem certa), ignora e continua
              if (axios.isAxiosError(error) && (error.response?.status === 409 || (error.response?.status === 403 && JSON.stringify(error.response.data).includes("is already in use")))) {
-                 // Instância já existe, o que é bom. Continuamos para a etapa de conexão.
-                 await setWebhookForInstance(userEmail, userId); // Garante que o webhook esteja configurado
+                 await logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Tentando obter QR code.`, {});
+                 await setWebhookForInstance(userEmail, userId);
              } else {
-                 // Relança qualquer outro erro da criação
                  throw error;
              }
         }
        
-        // Etapa 2: Obter o QR Code
         const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
         const connectResponse = await axios.get(connectUrl, {
              headers: { 'apikey': apiKey }
         });
         
-        // Se a resposta tiver um campo "base64", esse é o nosso QR Code
-        if (connectResponse.data?.base64) {
-             return { success: true, qrCode: `data:image/png;base64,${connectResponse.data.base64}` };
-        }
-
-        // Se não houver 'base64', mas houver um status, podemos verificar se já está conectado
         const instanceStatus = connectResponse.data?.instance?.status;
         if (instanceStatus === 'open') {
-             return { success: true, qrCode: 'CONNECTED' };
+             return { success: true, state: 'open' };
+        }
+
+        if (connectResponse.data?.base64) {
+             return { success: true, qrCode: `data:image/png;base64,${connectResponse.data.base64}` };
         }
 
         return { success: false, error: 'Não foi possível obter o QR code da API após criar a instância.' };
@@ -681,7 +695,7 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
             return { state };
         }
         
-        return { state: 'close' }; // Default to 'close' if state is unknown
+        return { state: 'close' }; 
 
     } catch (error: any) {
         let errorMessage = 'Ocorreu um erro ao verificar o estado da conexão.';
@@ -698,10 +712,59 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
         return { state: 'ERROR', error: errorMessage };
     }
 }
+
+export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const globalCredentials = await getGlobalEvolutionApiCredentials();
+        if (!globalCredentials) {
+            throw new Error('Credenciais globais da Evolution API não estão configuradas.');
+        }
+
+        const { apiUrl, apiKey: globalApiKey } = globalCredentials;
+        const url = `${apiUrl.replace(/\/$/, '')}/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`;
+
+        const response = await axios.get(url, {
+            headers: { 'apikey': globalApiKey }
+        });
+
+        if (!Array.isArray(response.data) || response.data.length === 0) {
+            throw new Error(`Instância '${instanceName}' não encontrada na API.`);
+        }
+        
+        const instanceData = response.data[0].instance;
+        const instanceApiKey = instanceData?.apikey;
+
+        if (!instanceApiKey) {
+            throw new Error(`A chave de API para a instância '${instanceName}' não foi encontrada na resposta da API.`);
+        }
+
+        const adminFirestore = getAdminFirestore();
+        const userCredentialsRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
+
+        await userCredentialsRef.set({
+            apiUrl: apiUrl,
+            apiKey: instanceApiKey,
+            instanceName: instanceName,
+        }, { merge: true });
+
+        await logSystemInfo(userId, 'fetchAndSaveInstanceApiKey_success', `Chave de API da instância ${instanceName} salva com sucesso.`, {});
+        return { success: true };
+
+    } catch (error: any) {
+        let errorMessage = 'Ocorreu um erro ao buscar ou salvar a chave da API da instância.';
+        if (axios.isAxiosError(error) && error.response?.data) {
+             errorMessage = JSON.stringify(error.response.data);
+        } else if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+        await logSystemFailure(userId, 'fetchAndSaveInstanceApiKey_failure', { message: errorMessage, stack: error.stack }, { instanceName });
+        return { success: false, error: errorMessage };
+    }
+}
+    
     
 
     
 
     
 
-    

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,9 +11,9 @@ interface EvolutionApiCredentials {
 }
 
 /**
- * Hook para buscar as credenciais da Evolution API de um usuário.
- * @param {string | null} userId - O ID do usuário.
- * @returns {{ credentials: EvolutionApiCredentials | null, loading: boolean, error: Error | null }} As credenciais, estado de carregamento e erro.
+ * Hook to fetch the user-specific Evolution API credentials.
+ * @param {string | null} userId - The ID of the user.
+ * @returns {{ credentials: EvolutionApiCredentials | null, loading: boolean, error: Error | null }} The credentials, loading state, and error.
  */
 export function useEvolutionApiCredentials(userId: string | null) {
   const [credentials, setCredentials] = useState<EvolutionApiCredentials | null>(null);
@@ -38,7 +37,6 @@ export function useEvolutionApiCredentials(userId: string | null) {
           const data = docSnap.data();
           if (data.apiUrl && data.apiKey && data.instanceName) {
             setCredentials({
-                // Garante que a URL não tenha uma barra no final.
                 apiUrl: data.apiUrl.endsWith('/') ? data.apiUrl.slice(0, -1) : data.apiUrl,
                 apiKey: data.apiKey,
                 instanceName: data.instanceName,
@@ -52,7 +50,7 @@ export function useEvolutionApiCredentials(userId: string | null) {
         setLoading(false);
       },
       (err) => {
-        console.error("Erro ao buscar credenciais da Evolution API:", err);
+        console.error("Error fetching user Evolution API credentials:", err);
         setError(err);
         setLoading(false);
       }

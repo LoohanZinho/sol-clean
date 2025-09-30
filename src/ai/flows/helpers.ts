@@ -1,5 +1,3 @@
-
-
 'use server';
 
 /**
@@ -240,7 +238,6 @@ function splitMessageIntoChunks(message: string): string[] {
  *
  * @param {string} userId - O ID do usuário.
  * @param {string} conversationId - O ID da conversa.
- * @param {string} instanceName - O nome da instância da Evolution API (email do usuário).
  * @param {string} fullResponse - O texto completo a ser enviado.
  * @param {AppMessage} [messageToReplyTo] - A mensagem do cliente à qual a IA está respondendo (para citação).
  * @returns {Promise<boolean>} Uma promessa que resolve para `true` se o envio for bem-sucedido, `false` caso contrário.
@@ -248,7 +245,6 @@ function splitMessageIntoChunks(message: string): string[] {
 export async function handleAiMessageSend(
     userId: string,
     conversationId: string,
-    instanceName: string,
     fullResponse: string,
     messageToReplyTo?: AppMessage
 ): Promise<boolean> {
@@ -274,14 +270,13 @@ export async function handleAiMessageSend(
             const quotedMessage = isFirstChunk && shouldQuote ? messageToReplyTo : null;
 
             // Simula o status "digitando...".
-            await sendPresence({ userId, phone: conversationId, presence: 'composing', instanceName });
+            await sendPresence({ userId, phone: conversationId, presence: 'composing', instanceName: '' });
             await delay(1000); // Atraso para simular o tempo de digitação.
 
             const result = await sendTextMessage({
               userId,
               phone: conversationId,
               message: chunk,
-              instanceName,
               source: 'ai',
               quotedMessage: quotedMessage, // Cita a mensagem original apenas no primeiro pedaço.
             });
@@ -317,7 +312,7 @@ export async function handleAiMessageSend(
         }
         
         // Finaliza a simulação, mostrando o status como "online".
-        await sendPresence({ userId, phone: conversationId, presence: 'available', instanceName });
+        await sendPresence({ userId, phone: conversationId, presence: 'available', instanceName: '' });
         
         const automationSettings = await getAutomationSettings(userId);
         const updateData: Partial<Conversation> = {
@@ -413,5 +408,3 @@ export async function isBusinessOpen(userId: string, checkTime?: Date): Promise<
     // Se não encontrou nenhum intervalo correspondente, está fechado.
     return false;
 }
-
-    
