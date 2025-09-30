@@ -559,40 +559,61 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
         }
 
         const { apiUrl, apiKey } = credentials;
-        const url = `${apiUrl.replace(/\/$/, '')}/instance/create`;
-
-        const response = await axios.post(url, {
+        
+        // Etapa 1: Criar a instância
+        const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
+        const createResponse = await axios.post(createUrl, {
             instanceName: userEmail,
-            qrcode: true,
+            qrcode: false, // Não precisamos do QR code nesta etapa
             integration: "WHATSAPP-BAILEYS"
         }, {
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': apiKey
-            }
+            headers: { 'Content-Type': 'application/json', 'apikey': apiKey }
         });
-        
-        // Handle case where instance is already connected or connecting
-        const instanceStatus = response.data?.instance?.status;
+
+        const instanceStatus = createResponse.data?.instance?.status;
         if (instanceStatus === 'open' || instanceStatus === 'connecting') {
              return { success: true, qrCode: 'CONNECTED' };
         }
 
-        if (response.data?.qrcode?.base64) {
-            return { success: true, qrCode: response.data.qrcode.base64 };
+        // Etapa 2: Obter o QR Code
+        await delay(1000); // Um pequeno atraso para garantir que a instância esteja pronta para a conexão
+
+        const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
+        const connectResponse = await axios.get(connectUrl, {
+            headers: { 'apikey': apiKey }
+        });
+        
+        if (connectResponse.data?.base64) {
+            return { success: true, qrCode: connectResponse.data.base64 };
         } 
 
-        return { success: false, error: 'Não foi possível obter o QR code da API.' };
+        return { success: false, error: 'Não foi possível obter o QR code da API após criar a instância.' };
 
     } catch (error: any) {
         let errorMessage = 'Ocorreu um erro ao criar a instância.';
-        if (axios.isAxiosError(error) && error.response) {
-             if (typeof error.response.data?.message === 'string') {
-                errorMessage = error.response.data.message;
-            } else if (error.response.data) {
-                errorMessage = JSON.stringify(error.response.data);
-            } else {
-                 errorMessage = error.message;
+        if (axios.isAxiosError(error) && error.response?.data) {
+             const apiError = error.response.data;
+             if (typeof apiError.message === 'string') {
+                errorMessage = apiError.message;
+             } else if (apiError.error === 'Instance already exists') {
+                 errorMessage = 'A instância já existe. Tentando conectar...';
+                 // Como a instância já existe, podemos tentar obter o QR code diretamente.
+                 // Esta lógica é um fallback para o fluxo principal.
+                 try {
+                     const credentials = await getGlobalEvolutionApiCredentials();
+                     if (!credentials) throw new Error('Credenciais não encontradas.');
+                     const { apiUrl, apiKey } = credentials;
+                     const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
+                     const connectResponse = await axios.get(connectUrl, { headers: { 'apikey': apiKey } });
+                     if (connectResponse.data?.base64) {
+                        return { success: true, qrCode: connectResponse.data.base64 };
+                    }
+                 } catch (connectError) {
+                     // Ignora e usa a mensagem de erro original
+                 }
+             }
+             else {
+                errorMessage = JSON.stringify(apiError);
             }
         } else if (error instanceof Error) {
             errorMessage = error.message;
