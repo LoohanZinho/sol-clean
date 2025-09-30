@@ -586,9 +586,15 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
 
     } catch (error: any) {
         let errorMessage = 'Ocorreu um erro ao criar a instância.';
-        if (error.response?.data?.message) {
-            errorMessage = error.response.data.message;
-        } else if (error.message) {
+        if (axios.isAxiosError(error) && error.response) {
+             if (typeof error.response.data?.message === 'string') {
+                errorMessage = error.response.data.message;
+            } else if (error.response.data) {
+                errorMessage = JSON.stringify(error.response.data);
+            } else {
+                 errorMessage = error.message;
+            }
+        } else if (error instanceof Error) {
             errorMessage = error.message;
         }
         return { success: false, error: errorMessage };
