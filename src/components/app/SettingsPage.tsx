@@ -82,7 +82,7 @@ export const SettingsPage = ({ userId }: SettingsPageProps) => {
                       >
                           <tab.icon className="h-4 w-4" />
                            <span className="hidden sm:inline">{tab.label}</span>
-                           <span className="sm:hidden">{tab.mobileLabel || tab.label}</span>
+                           <span className="sm:hidden">{tab.label}</span>
                       </button>
                   ))}
               </div>
@@ -94,3 +94,5 @@ export const SettingsPage = ({ userId }: SettingsPageProps) => {
         </div>
     );
 };
+
+    

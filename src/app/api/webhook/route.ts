@@ -14,7 +14,7 @@ import type { NextRequest } from 'next/server';
 import { getAdminFirestore, initializeAdmin } from '@/lib/firebase-admin';
 import { getStorage } from 'firebase-admin/storage';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { AppMessage, Conversation, AutomationSettings, Order } from '@/lib/types';
+import type { AppMessage, Conversation, AutomationSettings } from '@/lib/types';
 import { z } from 'zod';
 import { logSystemFailure, logSystemInfo, logWebhookCall } from '@/ai/flows/system-log-helpers';
 import { processConversationV2 } from '@/ai/flows/process-conversations-v2';
@@ -23,7 +23,6 @@ import { getProfilePictureUrl, sendTextMessage } from '@/actions/evolutionApiAct
 import { v4 as uuidv4 } from 'uuid';
 import { isBusinessOpen } from '@/ai/flows/helpers';
 import { findAndTriggerActions } from '@/actions/webhookSender';
-import { sendPaymentConfirmation } from '@/ai/flows/send-payment-confirmation';
 
 // Inicializa o SDK do Firebase Admin para operações de backend.
 initializeAdmin();
@@ -317,6 +316,13 @@ async function handleReceivedMessage(userId: string, payload: z.infer<typeof evo
     else if (mediaType) lastMessageText = `[${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}] ${text || ''}`;
     
     const adminFirestore = getAdminFirestore();
+    const userDoc = await adminFirestore.collection('users').doc(userId).get();
+    const userEmail = userDoc.data()?.email;
+    if (!userEmail) {
+        logSystemFailure(userId, 'webhook_user_email_not_found', { message: `Email do usuário ${userId} não encontrado para ser usado como instanceName.`}, { conversationId });
+        return;
+    }
+
     const conversationRef = adminFirestore.collection('users').doc(userId).collection('conversations').doc(conversationId);
     const messageRef = conversationRef.collection('messages').doc(messageId);
 
@@ -352,7 +358,7 @@ async function handleReceivedMessage(userId: string, payload: z.infer<typeof evo
         conversationUpdateData.folder = 'inbox';
         conversationUpdateData.isAiActive = true;
         
-        getProfilePictureUrl(userId, conversationId).then(picUrl => {
+        getProfilePictureUrl(userId, conversationId, userEmail).then(picUrl => {
             if (picUrl) {
                 conversationRef.set({ profilePicUrl: picUrl }, { merge: true }).catch(err => {
                      logSystemFailure(userId, 'webhook_atualizacao_foto_falhou', { message: err.message }, { conversationId });
@@ -451,7 +457,7 @@ async function handleReceivedMessage(userId: string, payload: z.infer<typeof evo
             await logSystemInfo(userId, 'webhook_business_hours_closed', `Fora do horário de funcionamento. Processamento da IA interrompido.`, { conversationId });
             if (automationSettings.sendOutOfHoursMessage && automationSettings.outOfHoursMessage) {
                 await logSystemInfo(userId, 'webhook_sending_out_of_hours_message', `Enviando mensagem de fora de expediente.`, { conversationId });
-                await sendTextMessage({ userId, phone: conversationId, message: automationSettings.outOfHoursMessage, source: 'ai' });
+                await sendTextMessage({ userId, phone: conversationId, message: automationSettings.outOfHoursMessage, instanceName: userEmail, source: 'ai' });
             }
             return; 
         } else {
@@ -563,3 +569,5 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'Erro Interno do Servidor' }, { status: 500 });
     }
 }
+
+    

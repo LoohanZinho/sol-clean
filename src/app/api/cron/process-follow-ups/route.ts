@@ -45,6 +45,13 @@ export async function GET(request: NextRequest) {
         // Itera sobre todos os usuários do sistema.
         for (const userDoc of usersSnapshot.docs) {
             const userId = userDoc.id;
+            const userEmail = userDoc.data()?.email;
+            
+            if (!userEmail) {
+                logSystemFailure('system_cron', 'processFollowUps_no_email', { message: `Usuário ${userId} não possui e-mail para usar como instanceName.` }, {});
+                continue;
+            }
+
             const settingsRef = firestore.collection('users').doc(userId).collection('settings').doc('automation');
             const settingsSnap = await settingsRef.get();
             const settings = settingsSnap.data() as AutomationSettings | undefined;
@@ -105,6 +112,7 @@ export async function GET(request: NextRequest) {
                         userId,
                         phone: conversation.id,
                         message: currentFollowUpConfig.message,
+                        instanceName: userEmail,
                         source: 'ai',
                     });
 
@@ -157,3 +165,5 @@ export async function GET(request: NextRequest) {
         return new NextResponse('Internal Server Error', { status: 500 });
     }
 }
+
+    
