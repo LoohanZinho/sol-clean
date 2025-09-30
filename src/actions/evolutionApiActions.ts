@@ -143,7 +143,7 @@ async function getUserEvolutionApiCredentials(userId: string): Promise<{ apiUrl:
     const docRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
     const docSnap = await docRef.get();
     
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
         const data = docSnap.data();
         if (data && data.apiUrl && data.apiKey && data.instanceName) {
             return {
