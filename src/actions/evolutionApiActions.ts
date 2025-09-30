@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -152,7 +153,6 @@ async function getUserEvolutionApiCredentials(userId: string): Promise<{ apiUrl:
             };
         }
     }
-    // Fallback to global if user-specific are not found
     return null;
 }
 
