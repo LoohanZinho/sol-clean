@@ -551,7 +551,49 @@ export async function sendMediaMessage(params: {
     return lastResult;
 }
 
-export async function createWhatsAppInstance(userEmail: string): Promise<{ success: boolean; qrCode?: string; error?: string }> {
+export async function setWebhookForInstance(instanceName: string, userId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const credentials = await getGlobalEvolutionApiCredentials();
+        if (!credentials) {
+            throw new Error('Credenciais globais da Evolution API não estão configuradas.');
+        }
+
+        const { apiUrl, apiKey } = credentials;
+        const url = `${apiUrl.replace(/\/$/, '')}/webhook/set/${instanceName}`;
+        
+        const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook?userId=${userId}`;
+
+        const body = {
+            url: webhookUrl,
+            webhook_by_events: true,
+            webhook_base64: true,
+            events: [
+                "MESSAGES_UPSERT",
+                "CONNECTION_UPDATE",
+            ]
+        };
+
+        await axios.post(url, body, {
+            headers: { 'Content-Type': 'application/json', 'apikey': apiKey }
+        });
+        
+        await logSystemInfo(userId, 'setWebhookForInstance_success', `Webhook configurado para a instância ${instanceName}.`, { webhookUrl });
+        return { success: true };
+
+    } catch (error: any) {
+        let errorMessage = 'Ocorreu um erro ao configurar o webhook.';
+        if (axios.isAxiosError(error) && error.response?.data) {
+             errorMessage = JSON.stringify(error.response.data);
+        } else if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+        await logSystemFailure(userId, 'setWebhookForInstance_failure', { message: errorMessage, stack: error.stack }, { instanceName });
+        return { success: false, error: errorMessage };
+    }
+}
+
+
+export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; qrCode?: string; error?: string }> {
     try {
         const credentials = await getGlobalEvolutionApiCredentials();
         if (!credentials) {
@@ -570,10 +612,12 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
              }, {
                 headers: { 'Content-Type': 'application/json', 'apikey': apiKey }
             });
+            await setWebhookForInstance(userEmail, userId);
         } catch (error: any) {
              // Se o erro for 'instance already exists' (409 ou 403 com a mensagem certa), ignora e continua
              if (axios.isAxiosError(error) && (error.response?.status === 409 || (error.response?.status === 403 && JSON.stringify(error.response.data).includes("is already in use")))) {
                  // Instância já existe, o que é bom. Continuamos para a etapa de conexão.
+                 await setWebhookForInstance(userEmail, userId); // Garante que o webhook esteja configurado
              } else {
                  // Relança qualquer outro erro da criação
                  throw error;
@@ -588,8 +632,7 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
         
         // Se a resposta tiver um campo "base64", esse é o nosso QR Code
         if (connectResponse.data?.base64) {
-             const base64Image = connectResponse.data.base64;
-             return { success: true, qrCode: base64Image };
+             return { success: true, qrCode: `data:image/png;base64,${connectResponse.data.base64}` };
         }
 
         // Se não houver 'base64', mas houver um status, podemos verificar se já está conectado
@@ -604,11 +647,10 @@ export async function createWhatsAppInstance(userEmail: string): Promise<{ succe
         let errorMessage = 'Ocorreu um erro ao criar a instância.';
         if (axios.isAxiosError(error) && error.response?.data) {
              const apiError = error.response.data as any;
-             // Tentativa de extrair uma mensagem de erro mais útil
-             if (apiError.message && typeof apiError.message === 'string') {
-                 errorMessage = apiError.message;
-             } else if (apiError.response?.message && typeof apiError.response.message === 'string') {
+             if (apiError.response?.message && typeof apiError.response.message === 'string') {
                  errorMessage = apiError.response.message;
+             } else if (apiError.message && typeof apiError.message === 'string') {
+                 errorMessage = apiError.message;
              } else {
                  errorMessage = JSON.stringify(apiError);
              }
@@ -639,9 +681,8 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
             return { state: 'CONNECTED' };
         }
         
-        // Trata 'connecting' como um estado de espera, não um sucesso final.
         if (state === 'connecting' || state === 'SCAN_QR_CODE') {
-            return { state };
+            return { state: state };
         }
 
         if (state === 'close') {

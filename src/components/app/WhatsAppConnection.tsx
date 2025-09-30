@@ -72,7 +72,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         stopPolling();
 
         try {
-            const result = await createWhatsAppInstance(userEmail);
+            const result = await createWhatsAppInstance(userEmail, userId);
             if (result.success) {
                 if (result.qrCode === 'CONNECTED') {
                     setIsConnected(true);
