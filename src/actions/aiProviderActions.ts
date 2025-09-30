@@ -52,12 +52,12 @@ export async function saveAiProviderSettings({ userId, apiKey }: { userId: strin
             const connectionStatusRef = firestore.collection('users').doc(userId).collection('settings').doc('connectionStatus');
             const connectionStatusSnap = await connectionStatusRef.get();
 
-            if (connectionStatusSnap.exists() && (connectionStatusSnap.data() as ConnectionStatus).status === 'connected') {
+            if (connectionStatusSnap.exists && (connectionStatusSnap.data() as ConnectionStatus).status === 'connected') {
                 const automationRef = firestore.collection('users').doc(userId).collection('settings').doc('automation');
                 const aiConfigRef = firestore.collection('users').doc(userId).collection('settings').doc('aiConfig');
                 
                 const aiConfigSnap = await aiConfigRef.get();
-                if (aiConfigSnap.exists() && aiConfigSnap.data()?.fullPrompt) {
+                if (aiConfigSnap.exists && aiConfigSnap.data()?.fullPrompt) {
                      await automationRef.set({ isAiActive: true }, { merge: true });
                      await logSystemInfo(userId, 'autoEnableAI', 'IA ativada automaticamente após salvar a chave de API com o WhatsApp conectado.', {});
                 }
