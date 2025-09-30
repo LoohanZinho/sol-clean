@@ -637,7 +637,11 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
         
         const state = response.data?.state;
 
-        if (state === 'CONNECTED' || state === 'DISCONNECTED' || state === 'SCAN_QR_CODE') {
+        if (state === 'open' || state === 'connecting') {
+            return { state: 'CONNECTED' };
+        }
+        
+        if (state === 'DISCONNECTED' || state === 'SCAN_QR_CODE') {
             return { state };
         }
         
