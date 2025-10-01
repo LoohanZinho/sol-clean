@@ -1,4 +1,5 @@
 
+
 'use server';
 
 /**
@@ -584,15 +585,14 @@ export async function setWebhookForInstance(instanceName: string, userId: string
         const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook?userId=${userId}`;
 
         const body = {
-            url: webhookUrl,
+            url: webhookUrl, // The top-level URL is for the global webhook, which we don't use here.
             webhook: {
                 enabled: true,
                 url: webhookUrl,
-                webhookByEvents: false, // Recommended to keep this false
+                webhookByEvents: false,
                 events: [
                     "MESSAGES_UPSERT",
                     "CONNECTION_UPDATE",
-                    // Add other events if needed, but keep it minimal
                 ]
             }
         };
@@ -631,7 +631,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         try {
              await axios.post(createUrl, {
                 instanceName: userEmail,
-                token: "", // Some versions might require a token, even if empty
+                token: "", 
                 qrcode: true,
              }, {
                 headers: { 'Content-Type': 'application/json', 'apikey': globalApiKey }
@@ -657,7 +657,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         const instanceData = connectResponse.data;
         
         // Check if already connected
-        if (instanceData?.instance?.status === 'open') {
+        if (instanceData?.instance?.state === 'open') {
              return { success: true, state: 'open' };
         }
 
@@ -733,17 +733,19 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
         }
 
         const { apiUrl, apiKey: globalApiKey } = globalCredentials;
-        const url = `${apiUrl.replace(/\/$/, '')}/instance/fetchInstances/${instanceName}`;
+        const url = `${apiUrl.replace(/\/$/, '')}/instance/fetchInstances?instanceName=${instanceName}`;
 
         const response = await axios.get(url, {
             headers: { 'apikey': globalApiKey }
         });
-
-        if (!response.data || !response.data.instance) {
+        
+        const instanceDetails = Array.isArray(response.data) ? response.data[0] : response.data;
+        
+        if (!instanceDetails || !instanceDetails.instance) {
             throw new Error(`Instância '${instanceName}' não encontrada na API.`);
         }
         
-        const instanceApiKey = response.data.hash?.apikey;
+        const instanceApiKey = instanceDetails.hash?.apikey;
 
         if (!instanceApiKey) {
             throw new Error(`A chave de API para a instância '${instanceName}' não foi encontrada na resposta da API (hash.apikey).`);
@@ -786,6 +788,8 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
 
     
 
+
+    
 
     
 
