@@ -110,6 +110,8 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const messageInputRef = useRef<HTMLInputElement>(null);
     const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
+    const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
+
 
     const [isAiReady, setIsAiReady] = useState(false);
     const [aiNotReadyReason, setAiNotReadyReason] = useState('');
@@ -593,9 +595,6 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
     
     const renderCentralPane = () => {
         if (!selectedConversation) {
-            if (!isUserConnected) {
-                return <WhatsAppConnection userId={userId} userEmail={userEmail} />;
-            }
              if (!hasActiveConversations && !hasArchivedConversations && !conversationsLoading) {
                  return (
                      <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-background p-8 text-center">
@@ -769,6 +768,7 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
 
     return (
         <div className="flex flex-1 h-full overflow-hidden relative">
+             {isConnectDialogOpen && <WhatsAppConnection userId={userId} userEmail={userEmail} />}
             <aside className={cn(
                 "w-full md:w-[380px] flex flex-col border-r border-border bg-card flex-shrink-0 transition-all duration-300",
                 "md:flex",
@@ -786,6 +786,19 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
                         <Search className="h-6 w-6" />
                     </Button>
                 </header>
+
+                 {!isUserConnected && (
+                    <div className="md:hidden p-3 border-b bg-amber-500/10 border-amber-500/20 text-amber-300 text-center">
+                        <p className="text-sm font-medium">
+                            Conecte seu WhatsApp{' '}
+                            <button onClick={() => setIsConnectDialogOpen(true)} className="underline font-bold">
+                                clicando aqui
+                            </button>
+                            .
+                        </p>
+                    </div>
+                )}
+
 
                 <div className="p-4 flex-shrink-0 space-y-4">
                     {isSearchVisible && (

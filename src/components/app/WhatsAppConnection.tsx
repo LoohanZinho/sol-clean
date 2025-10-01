@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Loader2, ServerCrash, CheckCircle, RefreshCw, Smartphone, QrCode } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
@@ -115,18 +116,6 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
     
     return (
         <>
-            {/* Mobile View */}
-            <div className="md:hidden p-4 border-b bg-amber-500/10 border-amber-500/20 text-amber-300">
-                <p className="text-center text-sm font-medium">
-                    Conecte seu WhatsApp{' '}
-                    <button onClick={handleConnect} className="underline font-bold">
-                        clicando aqui
-                    </button>
-                    .
-                </p>
-            </div>
-
-            {/* Desktop View */}
             <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-background p-8">
                 <Card className="max-w-sm w-full">
                     <CardHeader className="items-center text-center">
@@ -224,10 +213,11 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                              </Tabs>
                         )}
                     </div>
+                     <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Fechar</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
     );
 };
-
-    
