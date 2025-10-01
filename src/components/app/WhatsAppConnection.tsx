@@ -1,12 +1,15 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, ServerCrash, CheckCircle, RefreshCw, Smartphone } from 'lucide-react';
+import { Loader2, ServerCrash, CheckCircle, RefreshCw, Smartphone, QrCode } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
-import { createWhatsAppInstance, checkInstanceConnectionState } from '@/actions/evolutionApiActions';
+import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
 import Image from 'next/image';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from '@/lib/utils';
 
 interface WhatsAppConnectionProps {
     userId: string;
@@ -16,6 +19,7 @@ interface WhatsAppConnectionProps {
 export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const [pairingCode, setPairingCode] = useState<string | null>(null);
+    const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
@@ -41,8 +45,10 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         setIsCheckingStatus(false);
         setIsFinalizing(true);
         setPairingCode(null);
-        // The API key is now saved during the creation flow.
-        // We just show the success message.
+        setQrCodeBase64(null);
+        
+        await fetchAndSaveInstanceApiKey(userId, userEmail);
+        
         setIsConnected(true);
         setIsFinalizing(false);
     };
@@ -57,8 +63,9 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                 if (result.state === 'open') {
                     await handleSuccessfulConnection();
                 } else if (result.state === 'close') {
-                    // If it disconnects while waiting, try to get a new code.
-                    handleConnect();
+                    setError("A conexão foi fechada. Por favor, tente novamente.");
+                    setIsCheckingStatus(false);
+                    stopPolling();
                 } else if (result.state === 'ERROR') {
                     setError(result.error || 'Erro ao verificar status.');
                     setIsCheckingStatus(false);
@@ -76,6 +83,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         setIsLoading(true);
         setError(null);
         setPairingCode(null);
+        setQrCodeBase64(null);
         setIsConnected(false);
         setIsDialogOpen(true);
         stopPolling();
@@ -85,11 +93,14 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
             if (result.success) {
                 if (result.state === 'open') {
                     await handleSuccessfulConnection();
-                } else if (result.pairingCode) {
-                    setPairingCode(result.pairingCode);
-                    startPolling();
                 } else {
-                    setError('Não foi possível obter o código de pareamento da API.');
+                    setPairingCode(result.pairingCode || null);
+                    setQrCodeBase64(result.qrCodeBase64 || null);
+                    if (result.pairingCode || result.qrCodeBase64) {
+                        startPolling();
+                    } else {
+                        setError('Não foi possível obter o código de pareamento ou QR Code da API.');
+                    }
                 }
             } else {
                 setError(result.error || 'Ocorreu um erro desconhecido.');
@@ -123,14 +134,14 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     setIsDialogOpen(false);
                 }
             }}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Conectar com o número de telefone</DialogTitle>
+                        <DialogTitle>Conectar aparelho</DialogTitle>
                         <DialogDescription>
-                            Abra o WhatsApp, vá em <span className="font-semibold">Configurações {'>'} Aparelhos Conectados</span>, toque em <span className="font-semibold">Conectar um aparelho</span> e selecione <span className="font-semibold">Conectar com número de telefone</span>.
+                            Abra o WhatsApp em seu celular e use uma das opções abaixo.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="flex flex-col items-center justify-center p-4 min-h-[250px]">
+                    <div className="flex flex-col items-center justify-center p-4 min-h-[350px]">
                         {isLoading && <Loader2 className="h-12 w-12 animate-spin text-primary" />}
                         {error && (
                             <div className="text-center text-red-500">
@@ -157,16 +168,37 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                                 </Button>
                             </div>
                         )}
-                        {pairingCode && !isConnected && !isFinalizing && (
-                            <div className="text-center space-y-4">
-                                <div className="p-4 bg-muted rounded-lg">
-                                    <p className="text-4xl font-bold tracking-widest text-foreground">{pairingCode}</p>
-                                </div>
-                                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground animate-pulse">
+                        {!isLoading && !error && !isConnected && (qrCodeBase64 || pairingCode) && (
+                             <Tabs defaultValue="qrcode" className="w-full">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="qrcode" disabled={!qrCodeBase64}><QrCode className="h-4 w-4 mr-2"/>QR Code</TabsTrigger>
+                                    <TabsTrigger value="pairingcode" disabled={!pairingCode}><Smartphone className="h-4 w-4 mr-2"/>Código</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="qrcode">
+                                    <div className="flex flex-col items-center justify-center space-y-4 pt-4">
+                                        {qrCodeBase64 ? (
+                                            <Image src={qrCodeBase64} alt="QR Code" width={250} height={250} className="rounded-lg" />
+                                        ) : (
+                                            <div className="w-[250px] h-[250px] bg-muted rounded-lg flex items-center justify-center">
+                                                <Loader2 className="h-8 w-8 animate-spin"/>
+                                            </div>
+                                        )}
+                                        <p className="text-sm text-muted-foreground">Escaneie este código com seu celular.</p>
+                                    </div>
+                                </TabsContent>
+                                <TabsContent value="pairingcode">
+                                    <div className="flex flex-col items-center justify-center space-y-4 pt-4">
+                                         <p className="text-sm text-center text-muted-foreground">Vá em <span className="font-semibold">Aparelhos Conectados {'>'} Conectar com número de telefone</span> e digite o código abaixo.</p>
+                                        <div className="p-4 bg-muted rounded-lg">
+                                            <p className="text-4xl font-bold tracking-widest text-foreground">{pairingCode}</p>
+                                        </div>
+                                    </div>
+                                </TabsContent>
+                                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground animate-pulse mt-4">
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span>Aguardando confirmação no seu celular...</span>
+                                    <span>Aguardando confirmação...</span>
                                 </div>
-                            </div>
+                             </Tabs>
                         )}
                     </div>
                 </DialogContent>
