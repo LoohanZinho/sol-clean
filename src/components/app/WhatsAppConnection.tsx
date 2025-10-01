@@ -9,7 +9,7 @@ import { FaWhatsapp } from 'react-icons/fa';
 import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from '@/lib/utils';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 
 interface WhatsAppConnectionProps {
     userId: string;
@@ -95,8 +95,8 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     await handleSuccessfulConnection();
                 } else {
                     setPairingCode(result.pairingCode || null);
-                    setQrCodeBase64(result.qrCodeBase64 || null);
-                    if (result.pairingCode || result.qrCodeBase64) {
+                    setQrCodeBase64(result.base64 || null);
+                    if (result.pairingCode || result.base64) {
                         startPolling();
                     } else {
                         setError('Não foi possível obter o código de pareamento ou QR Code da API.');
@@ -113,20 +113,28 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
     };
     
     return (
-        <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-background p-8 text-center">
-            <div className="p-4 bg-primary/10 rounded-full mb-6">
-                <FaWhatsapp className="h-16 w-16 text-primary" />
-            </div>
-            <h2 className="text-2xl font-semibold">Conecte seu WhatsApp</h2>
-            <p className="max-w-md mt-2 text-muted-foreground">Clique no botão abaixo para gerar um código e sincronizar suas conversas com o painel.</p>
-            <Button onClick={handleConnect} className="mt-6" size="lg" disabled={isLoading}>
-                {isLoading ? (
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                ) : (
-                    <FaWhatsapp className="mr-2 h-5 w-5" />
-                )}
-                Conectar ao WhatsApp
-            </Button>
+        <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-background p-8">
+            <Card className="max-w-sm w-full">
+                <CardHeader className="items-center text-center">
+                    <div className="p-3 bg-primary/10 rounded-full mb-2">
+                        <FaWhatsapp className="h-8 w-8 text-primary" />
+                    </div>
+                    <CardTitle>Conecte seu WhatsApp</CardTitle>
+                    <CardDescription>
+                        Clique no botão abaixo para gerar um código e sincronizar suas conversas.
+                    </CardDescription>
+                </CardHeader>
+                <CardFooter>
+                     <Button onClick={handleConnect} className="w-full" size="lg" disabled={isLoading}>
+                        {isLoading ? (
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        ) : (
+                            <FaWhatsapp className="mr-2 h-5 w-5" />
+                        )}
+                        Conectar ao WhatsApp
+                    </Button>
+                </CardFooter>
+            </Card>
             
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
                 if (!open) {
