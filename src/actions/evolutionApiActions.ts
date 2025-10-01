@@ -13,7 +13,7 @@ import { logSystemFailure, logSystemInfo } from '@/ai/flows/system-log-helpers';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { AppMessage, Conversation } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 // Garante que o SDK do Firebase Admin seja inicializado.
 initializeAdmin();
@@ -72,15 +72,20 @@ function isRetryableError(error: any): boolean {
     return false;
 }
 
-/**
- * Uma função `axios` com lógica de retentativa embutida para lidar com falhas de rede.
- * @param {string} url - A URL da requisição.
- * @param {object} options - As opções da requisição Axios (método, headers, data).
- * @param {number} [retries=4] - O número máximo de tentativas.
- * @returns {Promise<any>} A resposta da requisição bem-sucedida.
- * @throws {Error} Lança um erro se a requisição falhar após todas as tentativas.
- */
-async function axiosWithRetry(url: string, options: { method?: string; headers?: any; data?: any }, retries = 4): Promise<any> {
+interface AxiosWithRetryResult {
+    data: any;
+    status: number;
+    request: {
+        method: string;
+        url: string;
+        headers: any;
+        data?: any;
+    };
+    responseHeaders: any;
+}
+
+
+async function axiosWithRetry(url: string, options: AxiosRequestConfig, retries = 4): Promise<AxiosWithRetryResult> {
     let lastError: Error | null = null;
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
@@ -89,9 +94,19 @@ async function axiosWithRetry(url: string, options: { method?: string; headers?:
                 method: options.method || 'GET',
                 headers: options.headers,
                 data: options.data,
-                timeout: 25000, // Timeout de 25 segundos
+                timeout: 25000, 
             });
-            return response.data;
+            return {
+                data: response.data,
+                status: response.status,
+                request: {
+                    method: (response.config.method || 'GET').toUpperCase(),
+                    url: response.config.url || url,
+                    headers: response.config.headers,
+                    data: response.config.data ? JSON.parse(response.config.data) : undefined,
+                },
+                responseHeaders: response.headers,
+            };
         } catch (error: any) {
             lastError = error;
             if (isRetryableError(error)) {
@@ -99,12 +114,22 @@ async function axiosWithRetry(url: string, options: { method?: string; headers?:
                     await delay(3000); // Espera 3 segundos antes de tentar novamente
                 }
             } else {
-                // Se o erro não for retryable (ex: 400 Bad Request), falha imediatamente.
                 if (error.isAxiosError) {
                     const axiosError = error as AxiosError;
-                    if (axiosError.response) {
+                     if (axiosError.response) {
                         const errorBody = axiosError.response.data || axiosError.message;
-                        throw new Error(`Erro do Cliente da API: ${axiosError.response.status} - ${JSON.stringify(errorBody)}`);
+                        const errorToThrow = new Error(`Erro do Cliente da API: ${axiosError.response.status} - ${JSON.stringify(errorBody)}`);
+                        (errorToThrow as any).response = {
+                            status: axiosError.response.status,
+                            data: errorBody,
+                            request: {
+                                method: (axiosError.config?.method || 'GET').toUpperCase(),
+                                url: axiosError.config?.url || url,
+                                headers: axiosError.config?.headers,
+                                data: axiosError.config?.data ? JSON.parse(axiosError.config.data) : undefined,
+                            }
+                        };
+                        throw errorToThrow;
                     } else {
                         throw new Error(`Erro de Rede do Cliente da API: ${axiosError.message}`);
                     }
@@ -115,6 +140,7 @@ async function axiosWithRetry(url: string, options: { method?: string; headers?:
     }
     throw new Error(`A requisição para a URL ${url} falhou após ${retries} tentativas. Último erro: ${lastError?.message}`);
 }
+
 
 async function getGlobalEvolutionCredentials(): Promise<{ apiUrl: string; apiKey: string } | null> {
     try {
@@ -184,7 +210,7 @@ export async function getProfilePictureUrl(userId: string, phone: string, instan
         const url = `${apiUrl.replace(/\/$/, '')}/chat/fetchProfilePictureUrl/${instanceName}`;
         const body = { number: `${phone}@s.whatsapp.net` };
 
-        const responseData = await axiosWithRetry(url, {
+        const { data: responseData } = await axiosWithRetry(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
             data: body,
@@ -419,7 +445,7 @@ export async function sendTextMessage(params: {
     }
     
     try {
-        const responseData = await axiosWithRetry(url, {
+        const { data: responseData } = await axiosWithRetry(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
             data: body,
@@ -520,7 +546,7 @@ export async function sendMediaMessage(params: {
         if(mimetype) body.mimetype = mimetype;
 
         try {
-            const responseData = await axiosWithRetry(url, {
+            const { data: responseData } = await axiosWithRetry(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
                 data: body,
@@ -572,7 +598,7 @@ export async function sendMediaMessage(params: {
     return lastResult;
 }
 
-export async function setWebhookForInstance(instanceName: string, userId: string): Promise<{ success: boolean; error?: string }> {
+export async function setWebhookForInstance(instanceName: string, userId: string): Promise<{ success: boolean; error?: string; log?: any }> {
     try {
         const credentials = await getGlobalEvolutionCredentials();
         if (!credentials) {
@@ -594,27 +620,32 @@ export async function setWebhookForInstance(instanceName: string, userId: string
             ]
         };
 
-        await axios.post(url, body, {
-            headers: { 'Content-Type': 'application/json', 'apikey': apiKey }
+        const result = await axiosWithRetry(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+            data: JSON.stringify(body)
         });
         
         await logSystemInfo(userId, 'setWebhookForInstance_success', `Webhook configurado para a instância ${instanceName}.`, { webhookUrl, body });
-        return { success: true };
+        return { success: true, log: result };
 
     } catch (error: any) {
         let errorMessage = 'Ocorreu um erro ao configurar o webhook.';
+        const log = (error as any).response || { request: { url: 'N/A' }, data: error.message };
+        
         if (axios.isAxiosError(error) && error.response?.data) {
              errorMessage = JSON.stringify(error.response.data);
         } else if (error instanceof Error) {
             errorMessage = error.message;
         }
         await logSystemFailure(userId, 'setWebhookForInstance_failure', { message: errorMessage, stack: error.stack }, { instanceName });
-        return { success: false, error: errorMessage };
+        return { success: false, error: errorMessage, log };
     }
 }
 
 
-export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; qrCodeBase64?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' }> {
+export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; qrCodeBase64?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE', logs: any[] }> {
+    const logs: any[] = [];
     try {
         const globalCredentials = await getGlobalEvolutionCredentials();
         if (!globalCredentials) {
@@ -625,39 +656,54 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         
         // Etapa 1: Criar a instância
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
+        const createBody = {
+            instanceName: userEmail,
+            qrcode: true,
+            integration: "WHATSAPP-BAILEYS"
+        };
         try {
-             await axios.post(createUrl, {
-                instanceName: userEmail,
-                qrcode: true,
-                integration: "WHATSAPP-BAILEYS"
-             }, {
-                headers: { 'Content-Type': 'application/json', 'apikey': globalApiKey }
+             const createResult = await axiosWithRetry(createUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': globalApiKey },
+                data: JSON.stringify(createBody)
             });
+            logs.push({ step: '1. Criar Instância', ...createResult });
             logSystemInfo(userId, 'createWhatsAppInstance_success', `Instância ${userEmail} criada com sucesso.`, { instanceName: userEmail });
         } catch (error: any) {
-            if (axios.isAxiosError(error) && error.response && (error.response.status === 409 || JSON.stringify(error.response.data).includes("already in use"))) {
-                logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Prosseguindo para a conexão.`, {});
+            logs.push({ step: '1. Criar Instância (Falha)', ...((error as any).response || { error: error.message }) });
+            if (axios.isAxiosError(error) && error.response) {
+                 if (error.response.status === 409 || JSON.stringify(error.response.data).includes("already in use")) {
+                    logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Prosseguindo para a conexão.`, {});
+                 } else {
+                     throw error; // Relança outros erros da criação
+                 }
             } else {
-                 throw error; // Relança outros erros da criação
+                throw error;
             }
         }
         
         // Etapa 2: Configurar o Webhook (chamada em paralelo para otimização)
-        setWebhookForInstance(userEmail, userId).catch(err => {
+        setWebhookForInstance(userEmail, userId).then(webhookResult => {
+            if(webhookResult.log) {
+                 logs.push({ step: '2. Configurar Webhook', ...webhookResult.log });
+            }
+        }).catch(err => {
             logSystemFailure(userId, 'createWhatsAppInstance_webhook_setup_failed_background', { message: `Falha ao configurar webhook em segundo plano: ${err.message}` }, { userEmail });
         });
        
         // Etapa 3: Obter QR Code e Código de Pareamento
         const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
-        const connectResponse = await axios.get(connectUrl, {
+        const connectResult = await axiosWithRetry(connectUrl, {
+             method: 'GET',
              headers: { 'apikey': globalApiKey }
         });
+        logs.push({ step: '3. Obter Códigos de Conexão', ...connectResult });
         
-        const instanceData = connectResponse.data;
+        const instanceData = connectResult.data;
         
         // Verifica se já está conectado
         if (instanceData?.instance?.state === 'open') {
-             return { success: true, state: 'open' };
+             return { success: true, state: 'open', logs };
         }
 
         const pairingCode = instanceData?.pairingCode;
@@ -667,14 +713,21 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
              return { 
                 success: true, 
                 pairingCode: pairingCode, 
-                qrCodeBase64: qrCodeBase64 ? `data:image/png;base64,${qrCodeBase64}` : undefined 
+                qrCodeBase64: qrCodeBase64 ? `data:image/png;base64,${qrCodeBase64}` : undefined,
+                logs
             };
         }
 
         // Fallback se a API de conexão não retornar os dados esperados
-        return { success: false, error: 'Não foi possível obter o código de pareamento ou QR Code da API após criar a instância.' };
+        return { success: false, error: 'Não foi possível obter o código de pareamento ou QR Code da API após criar a instância.', logs };
 
     } catch (error: any) {
+        if((error as any).response) {
+            logs.push({ step: 'Falha Crítica', ...((error as any).response) });
+        } else {
+            logs.push({ step: 'Falha Crítica', error: { message: error.message, stack: error.stack } });
+        }
+        
         let errorMessage = 'Ocorreu um erro ao criar ou conectar a instância.';
         if (axios.isAxiosError(error) && error.response?.data) {
              const apiError = error.response.data as any;
@@ -683,7 +736,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
             errorMessage = error.message;
         }
         await logSystemFailure(userId, 'createWhatsAppInstance_critical_failure', { message: errorMessage, stack: (error as any).stack }, { userEmail });
-        return { success: false, error: errorMessage };
+        return { success: false, error: errorMessage, logs };
     }
 }
 
@@ -697,11 +750,12 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
         const { apiUrl, apiKey } = credentials;
         const url = `${apiUrl.replace(/\/$/, '')}/instance/connectionState/${instanceName}`;
         
-        const response = await axios.get(url, {
+        const { data: response } = await axiosWithRetry(url, {
+             method: 'GET',
              headers: { 'apikey': apiKey }
         });
         
-        const state = response.data?.instance?.state;
+        const state = response?.instance?.state;
 
         if (state === 'open' || state === 'connecting' || state === 'SCAN_QR_CODE' || state === 'close') {
             return { state };
@@ -735,12 +789,13 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
         const { apiUrl, apiKey: globalApiKey } = globalCredentials;
         const url = `${apiUrl.replace(/\/$/, '')}/instance/fetchInstances?instanceName=${instanceName}`;
 
-        const response = await axios.get(url, {
+        const { data: response } = await axiosWithRetry(url, {
+            method: 'GET',
             headers: { 'apikey': globalApiKey }
         });
         
         // A API retorna um array, mesmo que com um único item.
-        const instanceDetailsArray = response.data;
+        const instanceDetailsArray = response;
         if (!Array.isArray(instanceDetailsArray) || instanceDetailsArray.length === 0) {
             throw new Error(`Instância '${instanceName}' não encontrada na resposta da API.`);
         }
@@ -796,5 +851,6 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
     
 
     
+
 
 

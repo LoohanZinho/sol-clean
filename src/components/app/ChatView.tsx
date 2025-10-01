@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, FormEvent, Suspense, useMemo } from 'react';
@@ -52,7 +53,6 @@ import { ClientNotesDialog } from './ClientNotesDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { ClientInfoPanel } from './ClientInfoPanel';
 import { WhatsAppConnection } from './WhatsAppConnection';
-import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useEvolutionApiCredentials } from '@/hooks/useEvolutionApiCredentials';
 
 const EditClientDialog = dynamic(() => import('./EditClientDialog').then(mod => mod.EditClientDialog), {
@@ -75,6 +75,7 @@ const TABS: { id: FilterType, label: string, mobileLabel: string }[] = [
 
 interface ChatViewProps {
     userId: string;
+    userEmail: string;
 }
 
 const renderFormattedText = (text: string) => {
@@ -88,8 +89,7 @@ const renderFormattedText = (text: string) => {
     });
 };
 
-export const ChatView = ({ userId }: ChatViewProps) => {
-    const [userEmail, setUserEmail] = useState('');
+export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
     const { conversations, loading: conversationsLoading, error: conversationsError } = useConversations(userId);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const { messages, loading: messagesLoading, error: messagesError } = useMessages(userId, selectedConversation?.id || null);
@@ -134,11 +134,6 @@ export const ChatView = ({ userId }: ChatViewProps) => {
     };
 
     useEffect(() => {
-        const storedUser = sessionStorage.getItem('user');
-        if (storedUser) {
-            setUserEmail(JSON.parse(storedUser).email);
-        }
-
         if (!userId) return;
 
         const firestore = getFirebaseFirestore();
@@ -779,7 +774,6 @@ export const ChatView = ({ userId }: ChatViewProps) => {
                 selectedConversation ? "hidden" : "flex",
                 isInfoPanelOpen && "md:w-[380px]"
             )}>
-                 {/* Mobile Header */}
                  <div className="h-16 flex items-center justify-between px-4 border-b border-border flex-shrink-0 relative overflow-hidden md:hidden">
                     <AnimatePresence>
                         {!isSearchVisible ? (
@@ -837,29 +831,14 @@ export const ChatView = ({ userId }: ChatViewProps) => {
                     </AnimatePresence>
                 </div>
 
-                {/* Desktop Header */}
-                <div className="h-16 hidden md:flex flex-col justify-center px-4 border-b border-border flex-shrink-0">
-                    <h2 className="text-xl font-bold mb-1">Conversas</h2>
-                </div>
-
-                {/* Search and Filters */}
                 <div className="p-4 flex-shrink-0 space-y-4">
-                    <div className="relative hidden md:block">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input 
-                            placeholder="Pesquisar por nome ou número..." 
-                            className="pl-11 h-11 text-base w-full"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <div className="relative p-1 bg-muted rounded-full flex items-center w-full">
+                     <div className="relative p-1 bg-muted rounded-full flex items-center w-full">
                         {TABS.map((tab) => (
                              <button
                                 key={tab.id}
                                 onClick={() => setActiveFilter(tab.id)}
                                 className={cn(
-                                    "relative w-full rounded-full py-1 text-sm font-medium transition-colors",
+                                    "relative w-full rounded-full py-1.5 text-sm font-medium transition-colors",
                                     activeFilter === tab.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                                 )}
                             >
