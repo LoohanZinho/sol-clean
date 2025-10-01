@@ -608,14 +608,13 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
         const { apiUrl, apiKey: globalApiKey } = globalCredentials;
         
-        // Etapa Única: Criar a instância e configurar o webhook
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
         
         const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook?userId=${userId}`;
 
         const createBody = {
             instanceName: userEmail,
-            token: userEmail, // API key for this instance will be the user's email
+            token: userEmail,
             qrcode: true,
             integration: "WHATSAPP-BAILEYS",
             webhook: {
@@ -636,7 +635,6 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
             
             const instanceData = createResult.data;
 
-            // Verifica se já está conectado
             if (instanceData?.instance?.state === 'open') {
                 await fetchAndSaveInstanceApiKey(userId, userEmail);
                 return { success: true, state: 'open', logs };
@@ -657,8 +655,8 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
         } catch (error: any) {
             const axiosError = error as AxiosError<any>;
-             if (axiosError.response && (axiosError.response.status === 409 || JSON.stringify(axiosError.response.data).includes("already exists"))) {
-                logs.push({ step: '1. Criar Instância (Falha)', status: 409, data: axiosError.response.data, error: { message: 'Instância já existe' } });
+             if (axiosError.response && (axiosError.response.status === 409 || (error.response?.data && JSON.stringify(error.response.data).includes("already exists")))) {
+                logs.push({ step: '1. Criar Instância (Falha)', status: 409, data: axiosError.response?.data, error: { message: 'Instância já existe' } });
                 logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Tentando conectar para obter QR.`, {});
                 
                 const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
@@ -827,3 +825,6 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
 
 
 
+
+
+    
