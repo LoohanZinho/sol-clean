@@ -670,14 +670,16 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
             logs.push({ step: '1. Criar Instância', ...createResult });
             logSystemInfo(userId, 'createWhatsAppInstance_success', `Instância ${userEmail} criada com sucesso.`, { instanceName: userEmail });
         } catch (error: any) {
-            logs.push({ step: '1. Criar Instância (Falha)', ...((error as any).response || { error: error.message }) });
-            if (axios.isAxiosError(error) && error.response) {
-                 if (error.response.status === 409 || JSON.stringify(error.response.data).includes("already in use")) {
+             const axiosError = error as AxiosError;
+            if (axiosError.response) {
+                logs.push({ step: '1. Criar Instância (Falha)', status: axiosError.response.status, data: axiosError.response.data, error: { message: axiosError.message } });
+                 if (axiosError.response.status === 409 || JSON.stringify(axiosError.response.data).includes("already in use")) {
                     logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Prosseguindo para a conexão.`, {});
                  } else {
                      throw error; // Relança outros erros da criação
                  }
             } else {
+                 logs.push({ step: '1. Criar Instância (Falha)', error: { message: axiosError.message } });
                 throw error;
             }
         }
@@ -851,6 +853,7 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
     
 
     
+
 
 
 
