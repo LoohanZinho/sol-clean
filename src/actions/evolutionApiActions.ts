@@ -626,50 +626,30 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         const { apiUrl, apiKey: globalApiKey } = globalCredentials;
         
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
-        let instanceApiKey = '';
 
         try {
-            const createResponse = await axios.post(createUrl, {
+             await axios.post(createUrl, {
                 instanceName: userEmail,
                 integration: "WHATSAPP-BAILEYS",
                 qrcode: true, 
             }, {
                 headers: { 'Content-Type': 'application/json', 'apikey': globalApiKey }
             });
-            instanceApiKey = createResponse.data?.hash?.apikey;
-            
-            if (!instanceApiKey) {
-                throw new Error("API não retornou a chave da instância na criação.");
-            }
             logSystemInfo(userId, 'createWhatsAppInstance_success', `Instância ${userEmail} criada com sucesso.`, { instanceName: userEmail });
 
         } catch (error: any) {
              if (axios.isAxiosError(error) && (error.response?.status === 409 || (error.response?.status === 403 && JSON.stringify(error.response.data).includes("is already in use")))) {
                  logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Buscando chave existente.`, {});
-                 
-                 const fetchResponse = await axios.get(`${apiUrl.replace(/\/$/, '')}/instance/fetchInstances?instanceName=${encodeURIComponent(userEmail)}`, { headers: { 'apikey': globalApiKey } });
-                 if (Array.isArray(fetchResponse.data) && fetchResponse.data.length > 0) {
-                     instanceApiKey = fetchResponse.data[0]?.instance?.apikey;
-                     if (!instanceApiKey) {
-                        throw new Error(`A instância ${userEmail} existe, mas não foi possível recuperar sua chave de API.`);
-                     }
-                 } else {
-                     throw new Error(`A instância ${userEmail} supostamente existe, mas não foi encontrada.`);
-                 }
              } else {
                  throw error; // Rethrow other errors
              }
         }
         
-        const adminFirestore = getAdminFirestore();
-        const userCredentialsRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
-        await userCredentialsRef.set({
-            apiUrl: apiUrl,
-            apiKey: instanceApiKey,
-            instanceName: userEmail,
-        }, { merge: true });
-        logSystemInfo(userId, 'saveInstanceApiKey_success', `Chave da instância ${userEmail} salva com sucesso.`, {});
-
+        const { success, error } = await fetchAndSaveInstanceApiKey(userId, userEmail);
+        if (!success) {
+            throw new Error(error || "Falha ao buscar e salvar a chave da API da instância após a criação.");
+        }
+       
         await setWebhookForInstance(userEmail, userId);
        
         const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;

@@ -95,8 +95,8 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     await handleSuccessfulConnection();
                 } else {
                     setPairingCode(result.pairingCode || null);
-                    setQrCodeBase64(result.base64 || null);
-                    if (result.pairingCode || result.base64) {
+                    setQrCodeBase64(result.qrCodeBase64 || null);
+                    if (result.pairingCode || result.qrCodeBase64) {
                         startPolling();
                     } else {
                         setError('Não foi possível obter o código de pareamento ou QR Code da API.');
@@ -113,28 +113,42 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
     };
     
     return (
-        <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-background p-8">
-            <Card className="max-w-sm w-full">
-                <CardHeader className="items-center text-center">
-                    <div className="p-3 bg-primary/10 rounded-full mb-2">
-                        <FaWhatsapp className="h-8 w-8 text-primary" />
-                    </div>
-                    <CardTitle>Conecte seu WhatsApp</CardTitle>
-                    <CardDescription>
-                        Clique no botão abaixo para gerar um código e sincronizar suas conversas.
-                    </CardDescription>
-                </CardHeader>
-                <CardFooter>
-                     <Button onClick={handleConnect} className="w-full" size="lg" disabled={isLoading}>
-                        {isLoading ? (
-                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        ) : (
-                            <FaWhatsapp className="mr-2 h-5 w-5" />
-                        )}
-                        Conectar ao WhatsApp
-                    </Button>
-                </CardFooter>
-            </Card>
+        <>
+            {/* Mobile View */}
+            <div className="md:hidden p-4 border-b bg-amber-500/10 border-amber-500/20 text-amber-300">
+                <p className="text-center text-sm font-medium">
+                    Conecte seu WhatsApp{' '}
+                    <button onClick={handleConnect} className="underline font-bold">
+                        clicando aqui
+                    </button>
+                    .
+                </p>
+            </div>
+
+            {/* Desktop View */}
+            <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-background p-8">
+                <Card className="max-w-sm w-full">
+                    <CardHeader className="items-center text-center">
+                        <div className="p-3 bg-primary/10 rounded-full mb-2">
+                            <FaWhatsapp className="h-8 w-8 text-primary" />
+                        </div>
+                        <CardTitle>Conecte seu WhatsApp</CardTitle>
+                        <CardDescription>
+                            Clique no botão abaixo para gerar um código e sincronizar suas conversas.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardFooter>
+                        <Button onClick={handleConnect} className="w-full" size="lg" disabled={isLoading}>
+                            {isLoading ? (
+                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            ) : (
+                                <FaWhatsapp className="mr-2 h-5 w-5" />
+                            )}
+                            Conectar ao WhatsApp
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </div>
             
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
                 if (!open) {
@@ -211,6 +225,6 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     </div>
                 </DialogContent>
             </Dialog>
-        </div>
+        </>
     );
 };
