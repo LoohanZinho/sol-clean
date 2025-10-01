@@ -595,6 +595,13 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
     
     const renderCentralPane = () => {
         if (!selectedConversation) {
+            if (!isUserConnected) {
+                return (
+                     <div className="hidden md:flex flex-1">
+                        <WhatsAppConnection userId={userId} userEmail={userEmail} />
+                    </div>
+                );
+            }
              if (!hasActiveConversations && !hasArchivedConversations && !conversationsLoading) {
                  return (
                      <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-background p-8 text-center">
@@ -768,14 +775,13 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
 
     return (
         <div className="flex flex-1 h-full overflow-hidden relative">
-             {isConnectDialogOpen && <WhatsAppConnection userId={userId} userEmail={userEmail} />}
             <aside className={cn(
                 "w-full md:w-[380px] flex flex-col border-r border-border bg-card flex-shrink-0 transition-all duration-300",
                 "md:flex",
                 selectedConversation ? "hidden" : "flex",
                 isInfoPanelOpen && "md:w-[380px]"
             )}>
-                <header className="h-16 flex items-center justify-between px-4 border-b border-border flex-shrink-0 md:hidden">
+                 <header className="h-16 flex items-center justify-between px-4 border-b border-border flex-shrink-0 md:hidden">
                     <SheetTrigger asChild>
                         <Button variant="ghost" size="icon" className="-ml-2">
                             <Menu className="h-6 w-6" />
@@ -787,22 +793,18 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
                     </Button>
                 </header>
 
-                 {!isUserConnected && (
-                    <div className="md:hidden p-3 border-b bg-amber-500/10 border-amber-500/20 text-amber-300 text-center">
-                        <p className="text-sm font-medium">
-                            Conecte seu WhatsApp{' '}
-                            <button onClick={() => setIsConnectDialogOpen(true)} className="underline font-bold">
-                                clicando aqui
-                            </button>
-                            .
-                        </p>
+                <div className="p-4 flex-shrink-0 border-b border-border space-y-4">
+                     <div className="relative hidden md:block">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input 
+                            placeholder="Buscar..." 
+                            className="pl-10 h-11 text-base w-full"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
-                )}
-
-
-                <div className="p-4 flex-shrink-0 space-y-4">
-                    {isSearchVisible && (
-                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+                     {isSearchVisible && (
+                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="md:hidden">
                             <Input 
                                 placeholder="Buscar..." 
                                 className="h-11 text-base w-full"
@@ -868,6 +870,18 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
                     )}
                 </div>
 
+                {!isUserConnected && (
+                    <div className="md:hidden p-3 border-b bg-amber-500/10 border-amber-500/20 text-amber-300 text-center">
+                        <p className="text-sm font-medium">
+                            Conecte seu WhatsApp{' '}
+                            <button onClick={() => setIsConnectDialogOpen(true)} className="underline font-bold">
+                                clicando aqui
+                            </button>
+                            .
+                        </p>
+                    </div>
+                )}
+                
                 <div ref={parentRef} className="flex-1 overflow-y-auto overflow-x-hidden relative">
                      {conversationsLoading ? (
                         <div className="p-4 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-pulse-subtle"/></div>
