@@ -1,5 +1,3 @@
-
-
 'use server';
 
 /**
@@ -614,37 +612,68 @@ export async function setWebhookForInstance(instanceName: string, userId: string
 }
 
 
-export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; qrCode?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' }> {
+export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' }> {
     try {
-        const credentials = await getGlobalEvolutionApiCredentials();
-        if (!credentials) {
+        const globalCredentials = await getGlobalEvolutionApiCredentials();
+        if (!globalCredentials) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
 
-        const { apiUrl, apiKey } = credentials;
+        const { apiUrl, apiKey: globalApiKey } = globalCredentials;
         
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
+        let instanceApiKey = '';
+
         try {
-             await axios.post(createUrl, {
+            const createResponse = await axios.post(createUrl, {
                 instanceName: userEmail,
                 integration: "WHATSAPP-BAILEYS",
-                qrcode: true,
-             }, {
-                headers: { 'Content-Type': 'application/json', 'apikey': apiKey }
+                qrcode: true, // This parameter might now control pairing code generation
+            }, {
+                headers: { 'Content-Type': 'application/json', 'apikey': globalApiKey }
             });
-            await setWebhookForInstance(userEmail, userId);
+            instanceApiKey = createResponse.data?.hash?.apikey;
+            
+            if (!instanceApiKey) {
+                throw new Error("API não retornou a chave da instância na criação.");
+            }
+            logSystemInfo(userId, 'createWhatsAppInstance_success', `Instância ${userEmail} criada com sucesso.`, { instanceName: userEmail });
+
         } catch (error: any) {
              if (axios.isAxiosError(error) && (error.response?.status === 409 || (error.response?.status === 403 && JSON.stringify(error.response.data).includes("is already in use")))) {
-                 await logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Tentando obter QR code.`, {});
-                 await setWebhookForInstance(userEmail, userId);
+                 logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Buscando chave existente.`, {});
+                 // Fetch existing instance to get its API key
+                 const fetchResponse = await axios.get(`${apiUrl.replace(/\/$/, '')}/instance/fetchInstances?instanceName=${encodeURIComponent(userEmail)}`, { headers: { 'apikey': globalApiKey } });
+                 if (Array.isArray(fetchResponse.data) && fetchResponse.data.length > 0) {
+                     instanceApiKey = fetchResponse.data[0]?.instance?.apikey;
+                     if (!instanceApiKey) {
+                        throw new Error(`A instância ${userEmail} existe, mas não foi possível recuperar sua chave de API.`);
+                     }
+                 } else {
+                     throw new Error(`A instância ${userEmail} supostamente existe, mas não foi encontrada.`);
+                 }
              } else {
-                 throw error;
+                 throw error; // Rethrow other errors
              }
         }
+        
+        // Save the instance API key and global URL to user settings
+        const adminFirestore = getAdminFirestore();
+        const userCredentialsRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
+        await userCredentialsRef.set({
+            apiUrl: apiUrl,
+            apiKey: instanceApiKey,
+            instanceName: userEmail,
+        }, { merge: true });
+        logSystemInfo(userId, 'saveInstanceApiKey_success', `Chave da instância ${userEmail} salva com sucesso.`, {});
+
+        // Configure webhook
+        await setWebhookForInstance(userEmail, userId);
        
+        // Get pairing code
         const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
         const connectResponse = await axios.get(connectUrl, {
-             headers: { 'apikey': apiKey }
+             headers: { 'apikey': globalApiKey } // Use global key to connect
         });
         
         const instanceStatus = connectResponse.data?.instance?.status;
@@ -652,11 +681,11 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
              return { success: true, state: 'open' };
         }
 
-        if (connectResponse.data?.base64) {
-             return { success: true, qrCode: `data:image/png;base64,${connectResponse.data.base64}` };
+        if (connectResponse.data?.pairingCode) {
+             return { success: true, pairingCode: connectResponse.data.pairingCode };
         }
 
-        return { success: false, error: 'Não foi possível obter o QR code da API após criar a instância.' };
+        return { success: false, error: 'Não foi possível obter o código de pareamento da API após criar a instância.' };
 
     } catch (error: any) {
         let errorMessage = 'Ocorreu um erro ao criar a instância.';
@@ -768,5 +797,6 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
     
 
     
+
 
 

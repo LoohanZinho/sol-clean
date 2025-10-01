@@ -1,12 +1,11 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, QrCode, ServerCrash, CheckCircle, RefreshCw } from 'lucide-react';
+import { Loader2, ServerCrash, CheckCircle, RefreshCw, Smartphone } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
-import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
+import { createWhatsAppInstance, checkInstanceConnectionState } from '@/actions/evolutionApiActions';
 import Image from 'next/image';
 
 interface WhatsAppConnectionProps {
@@ -16,7 +15,7 @@ interface WhatsAppConnectionProps {
 
 export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProps) => {
     const [isLoading, setIsLoading] = useState(false);
-    const [qrCode, setQrCode] = useState<string | null>(null);
+    const [pairingCode, setPairingCode] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
@@ -41,15 +40,11 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         stopPolling();
         setIsCheckingStatus(false);
         setIsFinalizing(true);
-        setQrCode(null);
-        try {
-            await fetchAndSaveInstanceApiKey(userId, userEmail);
-            setIsConnected(true);
-        } catch (e: any) {
-            setError(e.message || 'Falha ao salvar as credenciais da instância.');
-        } finally {
-            setIsFinalizing(false);
-        }
+        setPairingCode(null);
+        // The API key is now saved during the creation flow.
+        // We just show the success message.
+        setIsConnected(true);
+        setIsFinalizing(false);
     };
 
 
@@ -62,7 +57,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                 if (result.state === 'open') {
                     await handleSuccessfulConnection();
                 } else if (result.state === 'close') {
-                     // If it disconnects while waiting, try to get a new QR code.
+                    // If it disconnects while waiting, try to get a new code.
                     handleConnect();
                 } else if (result.state === 'ERROR') {
                     setError(result.error || 'Erro ao verificar status.');
@@ -80,7 +75,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
     const handleConnect = async () => {
         setIsLoading(true);
         setError(null);
-        setQrCode(null);
+        setPairingCode(null);
         setIsConnected(false);
         setIsDialogOpen(true);
         stopPolling();
@@ -90,11 +85,11 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
             if (result.success) {
                 if (result.state === 'open') {
                     await handleSuccessfulConnection();
-                } else if (result.qrCode) {
-                    setQrCode(result.qrCode);
+                } else if (result.pairingCode) {
+                    setPairingCode(result.pairingCode);
                     startPolling();
                 } else {
-                    setError('Não foi possível obter o QR code da API.');
+                    setError('Não foi possível obter o código de pareamento da API.');
                 }
             } else {
                 setError(result.error || 'Ocorreu um erro desconhecido.');
@@ -112,7 +107,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                 <FaWhatsapp className="h-16 w-16 text-primary" />
             </div>
             <h2 className="text-2xl font-semibold">Conecte seu WhatsApp</h2>
-            <p className="max-w-md mt-2 text-muted-foreground">Clique no botão abaixo para gerar um QR Code e sincronizar suas conversas com o painel.</p>
+            <p className="max-w-md mt-2 text-muted-foreground">Clique no botão abaixo para gerar um código e sincronizar suas conversas com o painel.</p>
             <Button onClick={handleConnect} className="mt-6" size="lg" disabled={isLoading}>
                 {isLoading ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -130,12 +125,12 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
             }}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Conectar WhatsApp</DialogTitle>
+                        <DialogTitle>Conectar com o número de telefone</DialogTitle>
                         <DialogDescription>
-                            Abra o WhatsApp no seu celular, vá em Aparelhos Conectados e leia o QR Code abaixo.
+                            Abra o WhatsApp, vá em <span className="font-semibold">Configurações {'>'} Aparelhos Conectados</span>, toque em <span className="font-semibold">Conectar um aparelho</span> e selecione <span className="font-semibold">Conectar com número de telefone</span>.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="flex items-center justify-center p-4 min-h-[300px]">
+                    <div className="flex flex-col items-center justify-center p-4 min-h-[250px]">
                         {isLoading && <Loader2 className="h-12 w-12 animate-spin text-primary" />}
                         {error && (
                             <div className="text-center text-red-500">
@@ -162,21 +157,15 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                                 </Button>
                             </div>
                         )}
-                        {qrCode && !isConnected && !isFinalizing && (
+                        {pairingCode && !isConnected && !isFinalizing && (
                             <div className="text-center space-y-4">
-                                <Image
-                                    src={`${qrCode}`}
-                                    alt="QR Code do WhatsApp"
-                                    width={300}
-                                    height={300}
-                                    className="rounded-lg"
-                                />
-                                {isCheckingStatus && (
-                                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground animate-pulse">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        <span>Aguardando confirmação da conexão...</span>
-                                    </div>
-                                )}
+                                <div className="p-4 bg-muted rounded-lg">
+                                    <p className="text-4xl font-bold tracking-widest text-foreground">{pairingCode}</p>
+                                </div>
+                                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground animate-pulse">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <span>Aguardando confirmação no seu celular...</span>
+                                </div>
                             </div>
                         )}
                     </div>
