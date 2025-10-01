@@ -22,8 +22,6 @@ import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/lib/firebase';
 import type { AiConfig } from '@/lib/types';
-import { WhatsAppConnection } from '@/components/app/WhatsAppConnection';
-import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,7 +80,7 @@ const ConnectionLogDialog = ({ logs, isOpen, onClose }: { logs: any[], isOpen: b
                                  <h4 className="font-semibold mb-1">Resposta ({log.status})</h4>
                                  <pre className={`text-xs p-2 rounded-md whitespace-pre-wrap break-all ${log.error ? 'bg-red-900/40 text-red-300' : 'bg-green-900/30 text-green-300'}`}>
                                     <code>{log.data ? JSON.stringify(log.data, null, 2) : log.error?.message || 'Erro desconhecido'}</code>
-                                </pre>
+                                 </pre>
                             </div>
                         </div>
                     ))}
@@ -108,17 +106,8 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
     const { connectionStatus } = useConnectionStatus(userId);
     const [isAlertVisible, setIsAlertVisible] = useState(false);
     const [agentRole, setAgentRole] = useState<string | undefined>(undefined);
-    
-    const [isLoading, setIsLoading] = useState(false);
-    const [pairingCode, setPairingCode] = useState<string | null>(null);
-    const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [isConnected, setIsConnected] = useState(false);
-    const [isCheckingStatus, setIsCheckingStatus] = useState(false);
-    const [isFinalizing, setIsFinalizing] = useState(false);
-    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
+    
     const [connectionLogs, setConnectionLogs] = useState<any[]>([]);
     const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
 
@@ -141,7 +130,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
             items.push({ id: 'testes', icon: FlaskConical, label: 'Testes' });
         }
         return items;
-    }, [isOwner]);
+    }, [isOwner, baseMenuItems]);
 
 
     useEffect(() => {
@@ -178,101 +167,9 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
         setIsSidebarCollapsed(!isSidebarCollapsed);
     };
 
-    // --- Connection Logic moved from WhatsAppConnection ---
-    const stopPolling = () => {
-        if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-        }
-    };
-    
-    useEffect(() => {
-        return () => {
-            stopPolling();
-        };
-    }, []);
-
-    const handleSuccessfulConnection = async () => {
-        stopPolling();
-        setIsCheckingStatus(false);
-        setIsFinalizing(true);
-        setPairingCode(null);
-        setQrCodeBase64(null);
-        
-        if (user.email) {
-            await fetchAndSaveInstanceApiKey(userId, user.email);
-        }
-        
-        setIsConnected(true);
-        setIsFinalizing(false);
-    };
-
-    const startPolling = () => {
-        if (!user.email) return;
-        stopPolling(); 
-        setIsCheckingStatus(true);
-        pollingIntervalRef.current = setInterval(async () => {
-            try {
-                const result = await checkInstanceConnectionState(user.email!);
-                 setConnectionLogs(prev => [...prev, { step: 'Verificando Status', ...result, status: result.state, data: result, request: { method: 'GET', url: `/instance/connectionState/${user.email}` } }]);
-                if (result.state === 'open') {
-                    await handleSuccessfulConnection();
-                } else if (result.state === 'close') {
-                    setError("A conexão foi fechada. Por favor, tente novamente.");
-                    setIsCheckingStatus(false);
-                    stopPolling();
-                } else if (result.state === 'ERROR') {
-                    setError(result.error || 'Erro ao verificar status.');
-                    setIsCheckingStatus(false);
-                    stopPolling();
-                }
-            } catch (e: any) {
-                setError(e.message || 'Falha ao verificar o estado da conexão.');
-                setIsCheckingStatus(false);
-                stopPolling();
-            }
-        }, 5000);
-    };
-
-    const handleConnect = async () => {
-        if (!user.email) {
-            setError("Email do usuário não encontrado. Não é possível criar a instância.");
-            return;
-        }
-        setIsLoading(true);
-        setError(null);
-        setPairingCode(null);
-        setQrCodeBase64(null);
-        setIsConnected(false);
+    const handleConnectClick = () => {
         setIsDialogOpen(true);
-        setConnectionLogs([]);
-        stopPolling();
-
-        try {
-            const result = await createWhatsAppInstance(user.email, userId);
-            setConnectionLogs(result.logs || []);
-            if (result.success) {
-                if (result.state === 'open') {
-                    await handleSuccessfulConnection();
-                } else {
-                    setPairingCode(result.pairingCode || null);
-                    setQrCodeBase64(result.base64 ? `data:image/png;base64,${result.base64}` : null);
-                    if (result.pairingCode || result.base64) {
-                        startPolling();
-                    } else {
-                        setError('Não foi possível obter o código de pareamento ou QR Code da API.');
-                    }
-                }
-            } else {
-                setError(result.error || 'Ocorreu um erro desconhecido.');
-            }
-        } catch (e: any) {
-            setError(e.message || 'Falha ao conectar com o servidor.');
-        } finally {
-            setIsLoading(false);
-        }
     };
-    // --- End of Connection Logic ---
 
     const renderActiveView = () => {
         switch (activeView) {
@@ -388,7 +285,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
                                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                                     <p className="text-sm font-medium">
                                         Conecte seu WhatsApp{' '}
-                                        <button onClick={handleConnect} className="underline font-bold hover:text-white">
+                                        <button onClick={handleConnectClick} className="underline font-bold hover:text-white">
                                             clicando aqui
                                         </button>
                                         .
@@ -432,89 +329,6 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
                 </SheetContent>
             </Sheet>
 
-            {/* Connection Dialog */}
-            <Dialog open={isDialogOpen} onOpenChange={(open) => {
-                if (!open) {
-                    stopPolling();
-                    setIsDialogOpen(false);
-                }
-            }}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Conectar aparelho</DialogTitle>
-                        <DialogDescription>
-                            Abra o WhatsApp em seu celular e use uma das opções abaixo.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex flex-col items-center justify-center p-4 min-h-[350px]">
-                        {isLoading && <Loader2 className="h-12 w-12 animate-spin text-primary" />}
-                        {error && (
-                            <div className="text-center text-red-500">
-                                <ServerCrash className="h-12 w-12 mx-auto mb-2" />
-                                <p className="font-semibold">Falha na Conexão</p>
-                                <p className="text-sm">{error}</p>
-                            </div>
-                        )}
-                        {isFinalizing && (
-                            <div className="text-center text-muted-foreground animate-pulse">
-                                <Loader2 className="h-12 w-12 mx-auto mb-2" />
-                                <p className="font-semibold">Finalizando conexão...</p>
-                                <p className="text-sm">Salvando credenciais da instância.</p>
-                            </div>
-                        )}
-                        {isConnected && !isFinalizing && (
-                             <div className="text-center text-green-500">
-                                <CheckCircle className="h-12 w-12 mx-auto mb-2" />
-                                <p className="font-semibold">Conectado com Sucesso!</p>
-                                <p className="text-sm text-muted-foreground">Atualize a página para ver suas conversas.</p>
-                                <Button onClick={() => window.location.reload()} className="mt-4">
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    Atualizar Página
-                                </Button>
-                            </div>
-                        )}
-                        {!isLoading && !error && !isConnected && (qrCodeBase64 || pairingCode) && (
-                             <Tabs defaultValue="qrcode" className="w-full">
-                                <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="qrcode" disabled={!qrCodeBase64}><QrCode className="h-4 w-4 mr-2"/>QR Code</TabsTrigger>
-                                    <TabsTrigger value="pairingcode" disabled={!pairingCode}><Smartphone className="h-4 w-4 mr-2"/>Código</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="qrcode">
-                                    <div className="flex flex-col items-center justify-center space-y-4 pt-4">
-                                        {qrCodeBase64 ? (
-                                            <Image src={qrCodeBase64} alt="QR Code" width={250} height={250} className="rounded-lg" />
-                                        ) : (
-                                            <div className="w-[250px] h-[250px] bg-muted rounded-lg flex items-center justify-center">
-                                                <Loader2 className="h-8 w-8 animate-spin"/>
-                                            </div>
-                                        )}
-                                        <p className="text-sm text-muted-foreground">Escaneie este código com seu celular.</p>
-                                    </div>
-                                </TabsContent>
-                                <TabsContent value="pairingcode">
-                                    <div className="flex flex-col items-center justify-center space-y-4 pt-4">
-                                         <p className="text-sm text-center text-muted-foreground">Vá em <span className="font-semibold">Aparelhos Conectados {'>'} Conectar com número de telefone</span> e digite o código abaixo.</p>
-                                        <div className="p-4 bg-muted rounded-lg">
-                                            <p className="text-4xl font-bold tracking-widest text-foreground">{pairingCode}</p>
-                                        </div>
-                                    </div>
-                                </TabsContent>
-                                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground animate-pulse mt-4">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span>Aguardando confirmação...</span>
-                                </div>
-                             </Tabs>
-                        )}
-                    </div>
-                    {isOwner && connectionLogs.length > 0 && (
-                        <DialogFooter>
-                             <Button variant="secondary" onClick={() => setIsLogDialogOpen(true)}>
-                                Ver Logs da Conexão
-                             </Button>
-                        </DialogFooter>
-                    )}
-                </DialogContent>
-            </Dialog>
             <ConnectionLogDialog 
                 logs={connectionLogs}
                 isOpen={isLogDialogOpen}

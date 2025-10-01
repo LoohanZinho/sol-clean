@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useRef, FormEvent, Suspense, useMemo } from 'react';
@@ -662,7 +663,7 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
                                 <TooltipContent>
                                     {aiNotReadyReason ? (
                                         <div className="flex items-center gap-2">
-                                            <KeyRound className="h-4 w-4"/>
+                                            <KeyRound className="h-4 w-4" />
                                             <p>{aiNotReadyReason}</p>
                                         </div>
                                     ) : (
