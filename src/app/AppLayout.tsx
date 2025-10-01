@@ -387,10 +387,11 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
                                 <div className="flex items-center gap-3">
                                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                                     <p className="text-sm font-medium">
-                                        WhatsApp Desconectado.{' '}
+                                        Conecte seu WhatsApp{' '}
                                         <button onClick={handleConnect} className="underline font-bold hover:text-white">
-                                            Conecte seu WhatsApp clicando aqui.
+                                            clicando aqui
                                         </button>
+                                        .
                                     </p>
                                 </div>
                                 <button onClick={() => setIsAlertVisible(false)} className="p-1 rounded-full hover:bg-yellow-500/20">
