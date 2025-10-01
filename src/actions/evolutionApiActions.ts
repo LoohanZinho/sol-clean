@@ -147,7 +147,7 @@ async function getUserEvolutionApiCredentials(userId: string): Promise<{ apiUrl:
     const docRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
     const docSnap = await docRef.get();
     
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
         const data = docSnap.data();
         if (data && data.apiUrl && data.apiKey && data.instanceName) {
             return {
@@ -162,7 +162,7 @@ async function getUserEvolutionApiCredentials(userId: string): Promise<{ apiUrl:
 
 async function getGlobalEvolutionCredentials(): Promise<{ apiUrl: string; apiKey: string } | null> {
     const adminFirestore = getAdminFirestore();
-    const docRef = doc(firestore, 'system_settings', 'evolutionApi');
+    const docRef = adminFirestore.collection('system_settings').doc('evolutionApi');
     const docSnap = await docRef.get();
     
     if (docSnap.exists()) {
@@ -693,8 +693,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         
         let errorMessage = 'Ocorreu um erro ao criar ou conectar a instância.';
         if (axios.isAxiosError(error) && error.response?.data) {
-             const apiError = error.response.data as any;
-             errorMessage = JSON.stringify(apiError, null, 2);
+             errorMessage = JSON.stringify(error.response.data, null, 2);
         } else if (error instanceof Error) {
             errorMessage = error.message;
         }
