@@ -585,10 +585,9 @@ export async function setWebhookForInstance(instanceName: string, userId: string
         const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook?userId=${userId}`;
 
         const body = {
-            url: webhookUrl, // The top-level URL is for the global webhook, which we don't use here.
             webhook: {
-                enabled: true,
                 url: webhookUrl,
+                enabled: true,
                 webhookByEvents: false,
                 events: [
                     "MESSAGES_UPSERT",
@@ -626,13 +625,13 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
         const { apiUrl, apiKey: globalApiKey } = globalCredentials;
         
-        // 1. Create Instance
+        // Etapa 1: Criar a instância
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
         try {
              await axios.post(createUrl, {
                 instanceName: userEmail,
-                token: "", 
                 qrcode: true,
+                integration: "WHATSAPP-BAILEYS"
              }, {
                 headers: { 'Content-Type': 'application/json', 'apikey': globalApiKey }
             });
@@ -641,14 +640,16 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
              if (axios.isAxiosError(error) && (error.response?.status === 409 || JSON.stringify(error.response.data).includes("already in use"))) {
                  logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Prosseguindo para a conexão.`, {});
              } else {
-                 throw error;
+                 throw error; // Relança outros erros da criação
              }
         }
         
-        // 2. Set Webhook
-        await setWebhookForInstance(userEmail, userId);
+        // Etapa 2: Configurar o Webhook (chamada em paralelo para otimização)
+        setWebhookForInstance(userEmail, userId).catch(err => {
+            logSystemFailure(userId, 'createWhatsAppInstance_webhook_setup_failed_background', { message: `Falha ao configurar webhook em segundo plano: ${err.message}` }, { userEmail });
+        });
        
-        // 3. Connect and get QR Code
+        // Etapa 3: Obter QR Code e Código de Pareamento
         const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
         const connectResponse = await axios.get(connectUrl, {
              headers: { 'apikey': globalApiKey }
@@ -656,7 +657,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         
         const instanceData = connectResponse.data;
         
-        // Check if already connected
+        // Verifica se já está conectado
         if (instanceData?.instance?.state === 'open') {
              return { success: true, state: 'open' };
         }
@@ -672,10 +673,11 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
             };
         }
 
+        // Fallback se a API de conexão não retornar os dados esperados
         return { success: false, error: 'Não foi possível obter o código de pareamento ou QR Code da API após criar a instância.' };
 
     } catch (error: any) {
-        let errorMessage = 'Ocorreu um erro ao criar a instância.';
+        let errorMessage = 'Ocorreu um erro ao criar ou conectar a instância.';
         if (axios.isAxiosError(error) && error.response?.data) {
              const apiError = error.response.data as any;
              errorMessage = apiError.message || JSON.stringify(apiError);
@@ -739,10 +741,16 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
             headers: { 'apikey': globalApiKey }
         });
         
-        const instanceDetails = Array.isArray(response.data) ? response.data[0] : response.data;
+        // A API retorna um array, mesmo que com um único item.
+        const instanceDetailsArray = response.data;
+        if (!Array.isArray(instanceDetailsArray) || instanceDetailsArray.length === 0) {
+            throw new Error(`Instância '${instanceName}' não encontrada na resposta da API.`);
+        }
         
+        const instanceDetails = instanceDetailsArray[0];
+
         if (!instanceDetails || !instanceDetails.instance) {
-            throw new Error(`Instância '${instanceName}' não encontrada na API.`);
+            throw new Error(`Dados da instância '${instanceName}' não encontrados na resposta.`);
         }
         
         const instanceApiKey = instanceDetails.hash?.apikey;
