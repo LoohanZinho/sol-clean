@@ -615,12 +615,12 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
         const createBody = {
             instanceName: userEmail,
-            token: userEmail,
+            token: userEmail, // API key for this instance will be the user's email
             qrcode: true,
             integration: "WHATSAPP-BAILEYS",
             webhook: {
                 url: webhookUrl,
-                webhook_by_events: true, // Corrigido de 'byEvents' para o nome correto
+                webhook_by_events: true, 
                 webhook_base64: true,
                 events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
             }
@@ -638,7 +638,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
             // Verifica se já está conectado
             if (instanceData?.instance?.state === 'open') {
-                await fetchAndSaveInstanceApiKey(userId, userEmail); // Salva a chave de API da instância
+                await fetchAndSaveInstanceApiKey(userId, userEmail);
                 return { success: true, state: 'open', logs };
             }
 
@@ -646,25 +646,21 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
             const base64 = instanceData?.base64;
 
             if (pairingCode || base64) {
-                // Iniciar o polling após obter o código/QR
-                // A função startPolling será chamada no lado do cliente
                 return { 
                     success: true, 
                     pairingCode: pairingCode, 
-                    base64: base64 ? `data:image/png;base64,${base64}` : undefined,
+                    base64: base64,
                     logs
                 };
             }
-            // Se a instância já existe, precisamos conectar para obter o QR
-            throw new Error("A instância foi criada, mas não retornou um código de conexão. Tentando conectar...");
+            throw new Error("A instância foi criada, mas não retornou um código de conexão.");
 
         } catch (error: any) {
             const axiosError = error as AxiosError<any>;
-            if (axiosError.response && (axiosError.response.status === 409 || JSON.stringify(axiosError.response.data).includes("already exists"))) {
+             if (axiosError.response && (axiosError.response.status === 409 || JSON.stringify(axiosError.response.data).includes("already exists"))) {
                 logs.push({ step: '1. Criar Instância (Falha)', status: 409, data: axiosError.response.data, error: { message: 'Instância já existe' } });
                 logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Tentando conectar para obter QR.`, {});
                 
-                // Se a instância já existe, tentamos conectar para obter o QR code
                 const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
                 const connectResult = await axiosWithRetry(connectUrl, {
                     method: 'GET',
@@ -684,7 +680,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
                     return { 
                         success: true, 
                         pairingCode: pairingCode, 
-                        base64: base64 ? `data:image/png;base64,${base64}` : undefined,
+                        base64: base64,
                         logs
                     };
                 }
@@ -692,7 +688,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
             } else {
                 logs.push({ step: '1. Criar Instância (Falha Crítica)', error: { message: axiosError.message, response: axiosError.response?.data } });
-                throw error; // Relança outros erros da criação
+                throw error;
             }
         }
     } catch (error: any) {
@@ -768,7 +764,6 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
             headers: { 'apikey': globalApiKey }
         });
         
-        // A API retorna um array, mesmo que com um único item.
         const instanceDetailsArray = response;
         if (!Array.isArray(instanceDetailsArray) || instanceDetailsArray.length === 0) {
             throw new Error(`Instância '${instanceName}' não encontrada na resposta da API.`);
@@ -825,6 +820,7 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
     
 
     
+
 
 
 

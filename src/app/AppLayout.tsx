@@ -141,7 +141,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
             items.push({ id: 'testes', icon: FlaskConical, label: 'Testes' });
         }
         return items;
-    }, [isOwner, agentRole, baseMenuItems]);
+    }, [isOwner]);
 
 
     useEffect(() => {
@@ -256,7 +256,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
                     await handleSuccessfulConnection();
                 } else {
                     setPairingCode(result.pairingCode || null);
-                    setQrCodeBase64(result.base64 || null);
+                    setQrCodeBase64(result.base64 ? `data:image/png;base64,${result.base64}` : null);
                     if (result.pairingCode || result.base64) {
                         startPolling();
                     } else {
