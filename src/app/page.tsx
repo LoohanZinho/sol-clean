@@ -4,7 +4,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { doc, getDocs, collection, query, where } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/lib/firebase';
-import { AppLayout } from '@/app/AppLayout';
+import { AppLayout } from '@/components/app/AppLayout';
 import { LoginScreen } from '@/components/app/LoginScreen';
 import { Loader2 } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
