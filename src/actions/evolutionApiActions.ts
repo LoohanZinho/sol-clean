@@ -635,11 +635,11 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
             });
             logSystemInfo(userId, 'createWhatsAppInstance_success', `Instância ${userEmail} criada com sucesso.`, { instanceName: userEmail });
         } catch (error: any) {
-             if (axios.isAxiosError(error) && (error.response?.status === 409 || JSON.stringify(error.response.data).includes("already in use"))) {
-                 logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Prosseguindo para a conexão.`, {});
-             } else {
+            if (axios.isAxiosError(error) && error.response && (error.response.status === 409 || JSON.stringify(error.response.data).includes("already in use"))) {
+                logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Prosseguindo para a conexão.`, {});
+            } else {
                  throw error; // Relança outros erros da criação
-             }
+            }
         }
         
         // Etapa 2: Configurar o Webhook (chamada em paralelo para otimização)
@@ -796,4 +796,5 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
     
 
     
+
 
