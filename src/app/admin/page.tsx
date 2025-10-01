@@ -91,21 +91,11 @@ async function getGlobalEvolutionCredentials() {
     }
 }
 
-async function saveGlobalEvolutionCredentials(credentials: { apiUrl: string; apiKey: string }, users: User[]) {
+async function saveGlobalEvolutionCredentials(credentials: { apiUrl: string; apiKey: string }) {
     try {
         const firestore = getFirebaseFirestore();
         const globalDocRef = doc(firestore, 'system_settings', 'evolutionApi');
-        
-        const batch = firestore.batch();
-        batch.set(globalDocRef, credentials, { merge: true });
-
-        // Also update each user's credentials
-        users.forEach(user => {
-            const userCredentialsRef = doc(firestore, 'users', user.id, 'settings', 'evolutionApiCredentials');
-            batch.set(userCredentialsRef, credentials, { merge: true });
-        });
-
-        await batch.commit();
+        await setDoc(globalDocRef, credentials, { merge: true });
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -200,7 +190,7 @@ const AdminPanel = () => {
         e.preventDefault();
         setSavingCreds(true);
         setCredsError(null);
-        const result = await saveGlobalEvolutionCredentials({ apiUrl, apiKey }, users);
+        const result = await saveGlobalEvolutionCredentials({ apiUrl, apiKey });
         if (!result.success) {
             setCredsError(result.error || 'Ocorreu um erro ao salvar as credenciais.');
         }
@@ -284,8 +274,8 @@ const AdminPanel = () => {
                                     <Input id="api-url" value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} placeholder="http://localhost:8080" required />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="api-key" className="flex items-center gap-2"><KeyRound className="h-4 w-4"/>Chave da API</Label>
-                                    <Input id="api-key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Sua chave de API global" required />
+                                    <Label htmlFor="api-key" className="flex items-center gap-2"><KeyRound className="h-4 w-4"/>Chave da API Global</Label>
+                                    <Input id="api-key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Sua chave de API global para admin" required />
                                 </div>
                                 {credsError && <p className="text-sm text-red-500 text-center">{credsError}</p>}
                                 <Button type="submit" disabled={savingCreds}>
@@ -406,3 +396,5 @@ export default function AdminPage() {
 
     return <AdminPanel />;
 }
+
+    

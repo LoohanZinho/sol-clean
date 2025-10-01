@@ -161,6 +161,23 @@ async function getUserEvolutionApiCredentials(userId: string): Promise<{ apiUrl:
     return null;
 }
 
+async function getGlobalEvolutionApiCredentials(): Promise<{ apiUrl: string; apiKey: string } | null> {
+    const adminFirestore = getAdminFirestore();
+    const docRef = adminFirestore.collection('system_settings').doc('evolutionApi');
+    const docSnap = await docRef.get();
+    
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data && data.apiUrl && data.apiKey) {
+            return {
+                apiUrl: data.apiUrl,
+                apiKey: data.apiKey,
+            };
+        }
+    }
+    return null;
+}
+
 
 
 /**
@@ -579,12 +596,12 @@ export async function sendMediaMessage(params: {
 export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; base64?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE', logs: any[] }> {
     const logs: any[] = [];
     try {
-        const userCredentials = await getUserEvolutionApiCredentials(userId);
-        if (!userCredentials || !userCredentials.apiUrl || !userCredentials.apiKey) {
-            throw new Error('Credenciais globais da Evolution API não estão configuradas.');
+        const globalCredentials = await getGlobalEvolutionApiCredentials();
+        if (!globalCredentials || !globalCredentials.apiUrl || !globalCredentials.apiKey) {
+            throw new Error('Credenciais globais da Evolution API não estão configuradas no painel de admin.');
         }
 
-        const { apiUrl, apiKey: globalApiKey } = userCredentials;
+        const { apiUrl, apiKey: globalApiKey } = globalCredentials;
         
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
         
@@ -689,9 +706,9 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
 export async function checkInstanceConnectionState(instanceName: string, userId: string): Promise<{ state: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' | 'ERROR', error?: string }> {
     try {
-        const credentials = await getUserEvolutionApiCredentials(userId);
+        const credentials = await getGlobalEvolutionApiCredentials();
         if (!credentials) {
-            throw new Error('Credenciais da API Evolution do usuário não estão configuradas.');
+            throw new Error('Credenciais da API Evolution globais não estão configuradas.');
         }
 
         const { apiUrl, apiKey } = credentials;
@@ -728,7 +745,7 @@ export async function checkInstanceConnectionState(instanceName: string, userId:
 
 export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: string): Promise<{ success: boolean; error?: string }> {
     try {
-        const globalCredentials = await getUserEvolutionApiCredentials(userId);
+        const globalCredentials = await getGlobalEvolutionApiCredentials();
         if (!globalCredentials) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
@@ -757,8 +774,11 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
         const adminFirestore = getAdminFirestore();
         const userCredentialsRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
 
+        // Note: The global apiUrl is saved to the user's settings for consistency,
+        // but the specific instanceApiKey is what's crucial here.
         await userCredentialsRef.set({
-            apiKey: instanceApiKey,
+            apiUrl: apiUrl, // Save the global URL for this user
+            apiKey: instanceApiKey, // This is the instance-specific key
             instanceName: instanceName,
         }, { merge: true });
 
@@ -807,3 +827,6 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
 
     
 
+
+
+    
