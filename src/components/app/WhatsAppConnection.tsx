@@ -20,7 +20,7 @@ interface WhatsAppConnectionProps {
 export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const [pairingCode, setPairingCode] = useState<string | null>(null);
-    const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
+    const [base64, setBase64] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
@@ -46,7 +46,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         setIsCheckingStatus(false);
         setIsFinalizing(true);
         setPairingCode(null);
-        setQrCodeBase64(null);
+        setBase64(null);
         
         await fetchAndSaveInstanceApiKey(userId, userEmail);
         
@@ -84,7 +84,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         setIsLoading(true);
         setError(null);
         setPairingCode(null);
-        setQrCodeBase64(null);
+        setBase64(null);
         setIsConnected(false);
         setIsDialogOpen(true);
         stopPolling();
@@ -96,8 +96,8 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     await handleSuccessfulConnection();
                 } else {
                     setPairingCode(result.pairingCode || null);
-                    setQrCodeBase64(result.qrCodeBase64 || null);
-                    if (result.pairingCode || result.qrCodeBase64) {
+                    setBase64(result.base64 || null);
+                    if (result.pairingCode || result.base64) {
                         startPolling();
                     } else {
                         setError('Não foi possível obter o código de pareamento ou QR Code da API.');
@@ -191,16 +191,16 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                                 </Button>
                             </div>
                         )}
-                        {!isLoading && !error && !isConnected && (qrCodeBase64 || pairingCode) && (
+                        {!isLoading && !error && !isConnected && (base64 || pairingCode) && (
                              <Tabs defaultValue="qrcode" className="w-full">
                                 <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="qrcode" disabled={!qrCodeBase64}><QrCode className="h-4 w-4 mr-2"/>QR Code</TabsTrigger>
+                                    <TabsTrigger value="qrcode" disabled={!base64}><QrCode className="h-4 w-4 mr-2"/>QR Code</TabsTrigger>
                                     <TabsTrigger value="pairingcode" disabled={!pairingCode}><Smartphone className="h-4 w-4 mr-2"/>Código</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="qrcode">
                                     <div className="flex flex-col items-center justify-center space-y-4 pt-4">
-                                        {qrCodeBase64 ? (
-                                            <Image src={qrCodeBase64} alt="QR Code" width={250} height={250} className="rounded-lg" />
+                                        {base64 ? (
+                                            <Image src={`data:image/png;base64,${base64}`} alt="QR Code" width={250} height={250} className="rounded-lg" />
                                         ) : (
                                             <div className="w-[250px] h-[250px] bg-muted rounded-lg flex items-center justify-center">
                                                 <Loader2 className="h-8 w-8 animate-spin"/>
@@ -229,5 +229,3 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         </>
     );
 };
-
-    
