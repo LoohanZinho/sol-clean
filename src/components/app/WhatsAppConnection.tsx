@@ -104,7 +104,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     }
                 }
             } else {
-                setError(result.error || 'Ocorreu um erro desconhecido.');
+                setError(result.error ? JSON.stringify(result.error, null, 2) : 'Ocorreu um erro desconhecido.');
             }
         } catch (e: any) {
             setError(e.message || 'Falha ao conectar com o servidor.');
@@ -167,10 +167,10 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     <div className="flex flex-col items-center justify-center p-4 min-h-[350px]">
                         {isLoading && <Loader2 className="h-12 w-12 animate-spin text-primary" />}
                         {error && (
-                            <div className="text-center text-red-500">
+                            <div className="text-center text-red-500 max-w-full">
                                 <ServerCrash className="h-12 w-12 mx-auto mb-2" />
                                 <p className="font-semibold">Falha na Conexão</p>
-                                <p className="text-sm">{error}</p>
+                                <pre className="mt-2 text-xs text-left bg-red-500/10 p-2 rounded-md whitespace-pre-wrap break-all">{error}</pre>
                             </div>
                         )}
                         {isFinalizing && (

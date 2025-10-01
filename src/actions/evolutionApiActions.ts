@@ -1,5 +1,4 @@
 
-
 'use server';
 
 /**
@@ -148,7 +147,7 @@ async function getUserEvolutionApiCredentials(userId: string): Promise<{ apiUrl:
     const docRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
     const docSnap = await docRef.get();
     
-    if (docSnap.exists) {
+    if (docSnap.exists()) {
         const data = docSnap.data();
         if (data && data.apiUrl && data.apiKey && data.instanceName) {
             return {
@@ -161,12 +160,12 @@ async function getUserEvolutionApiCredentials(userId: string): Promise<{ apiUrl:
     return null;
 }
 
-async function getGlobalEvolutionApiCredentials(): Promise<{ apiUrl: string; apiKey: string } | null> {
+async function getGlobalEvolutionCredentials(): Promise<{ apiUrl: string; apiKey: string } | null> {
     const adminFirestore = getAdminFirestore();
-    const docRef = adminFirestore.collection('system_settings').doc('evolutionApi');
+    const docRef = doc(firestore, 'system_settings', 'evolutionApi');
     const docSnap = await docRef.get();
     
-    if (docSnap.exists) {
+    if (docSnap.exists()) {
         const data = docSnap.data();
         if (data && data.apiUrl && data.apiKey) {
             return {
@@ -596,7 +595,7 @@ export async function sendMediaMessage(params: {
 export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; base64?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE', logs: any[] }> {
     const logs: any[] = [];
     try {
-        const globalCredentials = await getGlobalEvolutionApiCredentials();
+        const globalCredentials = await getGlobalEvolutionCredentials();
         if (!globalCredentials || !globalCredentials.apiUrl || !globalCredentials.apiKey) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas no painel de admin.');
         }
@@ -650,7 +649,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
         } catch (error: any) {
             const axiosError = error as AxiosError<any>;
-            if (axiosError.response && (axiosError.response.status === 409 || (error.response?.data && JSON.stringify(error.response.data).includes("already exists")))) {
+            if (axiosError.response && (axiosError.response.status === 409 || (axiosError.response?.data && JSON.stringify(axiosError.response.data).includes("already exists")))) {
                 logs.push({ step: '1. Criar Instância (Falha)', status: 409, data: axiosError.response?.data, error: { message: 'Instância já existe' } });
                 logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Tentando conectar para obter QR.`, {});
                 
@@ -695,7 +694,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         let errorMessage = 'Ocorreu um erro ao criar ou conectar a instância.';
         if (axios.isAxiosError(error) && error.response?.data) {
              const apiError = error.response.data as any;
-             errorMessage = apiError.message || JSON.stringify(apiError);
+             errorMessage = JSON.stringify(apiError, null, 2);
         } else if (error instanceof Error) {
             errorMessage = error.message;
         }
@@ -706,7 +705,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
 export async function checkInstanceConnectionState(instanceName: string, userId: string): Promise<{ state: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' | 'ERROR', error?: string }> {
     try {
-        const credentials = await getGlobalEvolutionApiCredentials();
+        const credentials = await getGlobalEvolutionCredentials();
         if (!credentials) {
             throw new Error('Credenciais da API Evolution globais não estão configuradas.');
         }
@@ -745,7 +744,7 @@ export async function checkInstanceConnectionState(instanceName: string, userId:
 
 export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: string): Promise<{ success: boolean; error?: string }> {
     try {
-        const globalCredentials = await getGlobalEvolutionApiCredentials();
+        const globalCredentials = await getGlobalEvolutionCredentials();
         if (!globalCredentials) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
@@ -828,5 +827,7 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
     
 
 
+
+    
 
     
