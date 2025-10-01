@@ -60,7 +60,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         setIsCheckingStatus(true);
         pollingIntervalRef.current = setInterval(async () => {
             try {
-                const result = await checkInstanceConnectionState(userEmail);
+                const result = await checkInstanceConnectionState(userEmail, userId);
                 if (result.state === 'open') {
                     await handleSuccessfulConnection();
                 } else if (result.state === 'close') {

@@ -142,28 +142,6 @@ async function axiosWithRetry(url: string, options: AxiosRequestConfig, retries 
 }
 
 
-async function getGlobalEvolutionCredentials(): Promise<{ apiUrl: string; apiKey: string } | null> {
-    try {
-        const adminFirestore = getAdminFirestore();
-        const docRef = adminFirestore.collection('system_settings').doc('evolutionApi');
-        const docSnap = await docRef.get();
-        if (!docSnap.exists) {
-            throw new Error(`Credenciais globais da Evolution API não encontradas.`);
-        }
-        const data = docSnap.data();
-        if (!data || !data.apiUrl || !data.apiKey) {
-            throw new Error(`Credenciais globais da Evolution API incompletas.`);
-        }
-        return {
-            apiUrl: data.apiUrl,
-            apiKey: data.apiKey,
-        };
-    } catch (error: any) {
-        // Log to a system-level log if possible, without user context
-        console.error("CRITICAL: Failed to get global Evolution API credentials:", error.message);
-        return null;
-    }
-}
 
 async function getUserEvolutionApiCredentials(userId: string): Promise<{ apiUrl: string; apiKey: string; instanceName: string } | null> {
     const adminFirestore = getAdminFirestore();
@@ -601,12 +579,12 @@ export async function sendMediaMessage(params: {
 export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; base64?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE', logs: any[] }> {
     const logs: any[] = [];
     try {
-        const globalCredentials = await getGlobalEvolutionCredentials();
-        if (!globalCredentials) {
+        const userCredentials = await getUserEvolutionApiCredentials(userId);
+        if (!userCredentials || !userCredentials.apiUrl || !userCredentials.apiKey) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
 
-        const { apiUrl, apiKey: globalApiKey } = globalCredentials;
+        const { apiUrl, apiKey: globalApiKey } = userCredentials;
         
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
         
@@ -709,11 +687,11 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
     }
 }
 
-export async function checkInstanceConnectionState(instanceName: string): Promise<{ state: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' | 'ERROR', error?: string }> {
+export async function checkInstanceConnectionState(instanceName: string, userId: string): Promise<{ state: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' | 'ERROR', error?: string }> {
     try {
-        const credentials = await getGlobalEvolutionCredentials();
+        const credentials = await getUserEvolutionApiCredentials(userId);
         if (!credentials) {
-            throw new Error('Credenciais globais da Evolution API não estão configuradas.');
+            throw new Error('Credenciais da API Evolution do usuário não estão configuradas.');
         }
 
         const { apiUrl, apiKey } = credentials;
@@ -750,7 +728,7 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
 
 export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: string): Promise<{ success: boolean; error?: string }> {
     try {
-        const globalCredentials = await getGlobalEvolutionCredentials();
+        const globalCredentials = await getUserEvolutionApiCredentials(userId);
         if (!globalCredentials) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
@@ -780,7 +758,6 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
         const userCredentialsRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
 
         await userCredentialsRef.set({
-            apiUrl: apiUrl,
             apiKey: instanceApiKey,
             instanceName: instanceName,
         }, { merge: true });
@@ -829,3 +806,4 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
 
 
     
+

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, FormEvent } from 'react';
@@ -90,11 +91,21 @@ async function getGlobalEvolutionCredentials() {
     }
 }
 
-async function saveGlobalEvolutionCredentials(credentials: { apiUrl: string; apiKey: string }) {
+async function saveGlobalEvolutionCredentials(credentials: { apiUrl: string; apiKey: string }, users: User[]) {
     try {
         const firestore = getFirebaseFirestore();
-        const docRef = doc(firestore, 'system_settings', 'evolutionApi');
-        await setDoc(docRef, credentials, { merge: true });
+        const globalDocRef = doc(firestore, 'system_settings', 'evolutionApi');
+        
+        const batch = firestore.batch();
+        batch.set(globalDocRef, credentials, { merge: true });
+
+        // Also update each user's credentials
+        users.forEach(user => {
+            const userCredentialsRef = doc(firestore, 'users', user.id, 'settings', 'evolutionApiCredentials');
+            batch.set(userCredentialsRef, credentials, { merge: true });
+        });
+
+        await batch.commit();
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -189,7 +200,7 @@ const AdminPanel = () => {
         e.preventDefault();
         setSavingCreds(true);
         setCredsError(null);
-        const result = await saveGlobalEvolutionCredentials({ apiUrl, apiKey });
+        const result = await saveGlobalEvolutionCredentials({ apiUrl, apiKey }, users);
         if (!result.success) {
             setCredsError(result.error || 'Ocorreu um erro ao salvar as credenciais.');
         }
