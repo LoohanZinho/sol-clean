@@ -724,7 +724,7 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
              headers: { 'apikey': apiKey }
         });
         
-        const state = response.data?.state;
+        const state = response.data?.instance?.state;
 
         if (state === 'open' || state === 'connecting' || state === 'SCAN_QR_CODE' || state === 'close') {
             return { state };
