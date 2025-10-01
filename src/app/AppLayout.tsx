@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { User as FirebaseUser } from 'firebase/auth';
-import { Users, Settings, ChevronLeft, LogOut, ChevronRight, Menu, X, AlertTriangle, FlaskConical, QrCode, Smartphone, Info } from 'lucide-react';
+import type { User as FirebaseUser } from 'firebase/auth';
+import { Users, Settings, ChevronLeft, LogOut, ChevronRight, Menu, X, AlertTriangle, FlaskConical, QrCode, Smartphone, Info, Copy, Check, RefreshCw, ServerCrash, CheckCircle, Loader2 } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -23,12 +23,22 @@ import { getFirebaseFirestore } from '@/lib/firebase';
 import type { AiConfig } from '@/lib/types';
 import { WhatsAppConnection } from '@/components/app/WhatsAppConnection';
 import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
-import { Loader2, ServerCrash, CheckCircle, RefreshCw, Copy, Check } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
+  AlertDialogContent as AlertDialogContentOriginal,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+
+
+interface AppLayoutProps {
+    user: FirebaseUser;
+    onLogout: () => void;
+}
 
 
 const ConnectionLogDialog = ({ logs, isOpen, onClose }: { logs: any[], isOpen: boolean, onClose: () => void }) => {
@@ -48,12 +58,12 @@ const ConnectionLogDialog = ({ logs, isOpen, onClose }: { logs: any[], isOpen: b
 
     return (
         <AlertDialog open={isOpen} onOpenChange={onClose}>
-            <AlertDialogContent className="max-w-4xl">
+            <AlertDialogContentOriginal className="max-w-4xl">
                 <AlertDialogHeader>
                     <AlertDialogTitle>Logs da Conexão em Tempo Real</AlertDialogTitle>
-                    <DialogDescription>
+                    <AlertDialogDescription>
                        Estes são os dados brutos de requisição e resposta da API durante a tentativa de conexão.
-                    </DialogDescription>
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="mt-4 max-h-[70vh] overflow-y-auto bg-muted/50 rounded-md p-4 border space-y-4">
                     {logs.map((log, index) => (
@@ -83,7 +93,7 @@ const ConnectionLogDialog = ({ logs, isOpen, onClose }: { logs: any[], isOpen: b
                     </Button>
                     <AlertDialogAction onClick={onClose}>Fechar</AlertDialogAction>
                 </AlertDialogFooter>
-            </AlertDialogContent>
+            </AlertDialogContentOriginal>
         </AlertDialog>
     );
 };
@@ -135,6 +145,11 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
         return () => unsubscribe();
     }, [userId]);
 
+    const baseMenuItems = [
+        { id: 'conversas', icon: FaWhatsapp, label: 'Conversas' },
+        { id: 'contatos', icon: Users, label: 'Contatos' },
+        { id: 'ajustes', icon: Settings, label: 'Ajustes' },
+    ];
 
     const menuItems = useMemo(() => {
         const items = [...baseMenuItems];
@@ -370,9 +385,9 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
                                 <div className="flex items-center gap-3">
                                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                                     <p className="text-sm font-medium">
-                                        WhatsApp Desconectado.
-                                        <button onClick={handleConnect} className="underline font-bold ml-1 hover:text-white">
-                                            Clique aqui para conectar.
+                                        WhatsApp Desconectado.{' '}
+                                        <button onClick={handleConnect} className="underline font-bold hover:text-white">
+                                            Conecte seu WhatsApp clicando aqui.
                                         </button>
                                     </p>
                                 </div>
