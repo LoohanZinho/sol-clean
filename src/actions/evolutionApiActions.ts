@@ -116,7 +116,7 @@ async function axiosWithRetry(url: string, options: { method?: string; headers?:
     throw new Error(`A requisição para a URL ${url} falhou após ${retries} tentativas. Último erro: ${lastError?.message}`);
 }
 
-async function getGlobalEvolutionApiCredentials(): Promise<{ apiUrl: string; apiKey: string } | null> {
+async function getGlobalEvolutionCredentials(): Promise<{ apiUrl: string; apiKey: string } | null> {
     try {
         const adminFirestore = getAdminFirestore();
         const docRef = adminFirestore.collection('system_settings').doc('evolutionApi');
@@ -574,7 +574,7 @@ export async function sendMediaMessage(params: {
 
 export async function setWebhookForInstance(instanceName: string, userId: string): Promise<{ success: boolean; error?: string }> {
     try {
-        const credentials = await getGlobalEvolutionApiCredentials();
+        const credentials = await getGlobalEvolutionCredentials();
         if (!credentials) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
@@ -585,22 +585,20 @@ export async function setWebhookForInstance(instanceName: string, userId: string
         const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook?userId=${userId}`;
 
         const body = {
-            webhook: {
-                url: webhookUrl,
-                enabled: true,
-                webhookByEvents: false,
-                events: [
-                    "MESSAGES_UPSERT",
-                    "CONNECTION_UPDATE",
-                ]
-            }
+            url: webhookUrl,
+            webhook_by_events: true,
+            webhook_base64: true, // Habilita o recebimento de mídias em base64
+            events: [
+                "MESSAGES_UPSERT",
+                "CONNECTION_UPDATE",
+            ]
         };
 
         await axios.post(url, body, {
             headers: { 'Content-Type': 'application/json', 'apikey': apiKey }
         });
         
-        await logSystemInfo(userId, 'setWebhookForInstance_success', `Webhook configurado para a instância ${instanceName}.`, { webhookUrl });
+        await logSystemInfo(userId, 'setWebhookForInstance_success', `Webhook configurado para a instância ${instanceName}.`, { webhookUrl, body });
         return { success: true };
 
     } catch (error: any) {
@@ -618,7 +616,7 @@ export async function setWebhookForInstance(instanceName: string, userId: string
 
 export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; qrCodeBase64?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' }> {
     try {
-        const globalCredentials = await getGlobalEvolutionApiCredentials();
+        const globalCredentials = await getGlobalEvolutionCredentials();
         if (!globalCredentials) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
@@ -691,7 +689,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
 export async function checkInstanceConnectionState(instanceName: string): Promise<{ state: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE' | 'ERROR', error?: string }> {
     try {
-        const credentials = await getGlobalEvolutionApiCredentials();
+        const credentials = await getGlobalEvolutionCredentials();
         if (!credentials) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
@@ -729,7 +727,7 @@ export async function checkInstanceConnectionState(instanceName: string): Promis
 
 export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: string): Promise<{ success: boolean; error?: string }> {
     try {
-        const globalCredentials = await getGlobalEvolutionApiCredentials();
+        const globalCredentials = await getGlobalEvolutionCredentials();
         if (!globalCredentials) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
@@ -749,15 +747,11 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
         
         const instanceDetails = instanceDetailsArray[0];
 
-        if (!instanceDetails || !instanceDetails.instance) {
-            throw new Error(`Dados da instância '${instanceName}' não encontrados na resposta.`);
-        }
-        
-        const instanceApiKey = instanceDetails.hash?.apikey;
-
-        if (!instanceApiKey) {
+        if (!instanceDetails || !instanceDetails.hash || !instanceDetails.hash.apikey) {
             throw new Error(`A chave de API para a instância '${instanceName}' não foi encontrada na resposta da API (hash.apikey).`);
         }
+        
+        const instanceApiKey = instanceDetails.hash.apikey;
 
         const adminFirestore = getAdminFirestore();
         const userCredentialsRef = adminFirestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
@@ -802,3 +796,4 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
     
 
     
+
