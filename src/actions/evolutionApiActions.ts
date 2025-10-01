@@ -178,6 +178,67 @@ export async function getGlobalEvolutionCredentials(): Promise<{ apiUrl: string;
     return null;
 }
 
+export async function checkInstanceConnectionState(instanceName: string, userId: string): Promise<{ state: 'open' | 'close' | 'connecting' | 'ERROR', error?: string }> {
+    try {
+        const globalCredentials = await getGlobalEvolutionCredentials();
+        if (!globalCredentials) throw new Error('Credenciais globais da Evolution API não estão configuradas.');
+
+        const { apiUrl, apiKey } = globalCredentials;
+        const url = `${apiUrl.replace(/\/$/, '')}/instance/connectionState/${instanceName}`;
+        
+        const { data } = await axios.get(url, { headers: { 'apikey': apiKey }});
+
+        return { state: data.instance.state };
+    } catch (error: any) {
+        let errorMessage = 'Falha ao verificar o estado da instância.';
+        if (axios.isAxiosError(error) && error.response?.data) {
+             errorMessage = JSON.stringify(error.response.data, null, 2);
+        } else if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+        await logSystemFailure(userId, 'checkInstanceConnectionState_failure', { message: errorMessage, stack: (error as any).stack }, { instanceName });
+        return { state: 'ERROR', error: errorMessage };
+    }
+}
+
+export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const globalCredentials = await getGlobalEvolutionCredentials();
+        if (!globalCredentials) throw new Error('Credenciais globais da Evolution API não estão configuradas.');
+
+        const { apiUrl, apiKey: globalApiKey } = globalCredentials;
+        
+        const fetchUrl = `${apiUrl.replace(/\/$/, '')}/instance/fetchInstances?instanceName=${instanceName}`;
+        const { data: instanceDetails } = await axios.get(fetchUrl, { headers: { 'apikey': globalApiKey } });
+
+        if (instanceDetails && instanceDetails.apikey) {
+            const firestore = getAdminFirestore();
+            const userCredentialsRef = firestore.collection('users').doc(userId).collection('settings').doc('evolutionApiCredentials');
+            
+            await userCredentialsRef.set({
+                apiUrl: apiUrl,
+                apiKey: instanceDetails.apikey,
+                instanceName: instanceName,
+            }, { merge: true });
+            
+            await logSystemInfo(userId, 'fetchAndSaveInstanceApiKey_success', 'Credenciais específicas da instância salvas com sucesso.', { instanceName });
+            return { success: true };
+        } else {
+            throw new Error('A chave de API da instância não foi encontrada na resposta da API.');
+        }
+
+    } catch (error: any) {
+        let errorMessage = 'Falha ao buscar e salvar a chave de API da instância.';
+        if (axios.isAxiosError(error) && error.response?.data) {
+             errorMessage = JSON.stringify(error.response.data, null, 2);
+        } else if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+        await logSystemFailure(userId, 'fetchAndSaveInstanceApiKey_failure', { message: errorMessage, stack: (error as any).stack }, { instanceName });
+        return { success: false, error: errorMessage };
+    }
+}
+
 
 
 /**
