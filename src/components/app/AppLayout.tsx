@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -19,6 +18,7 @@ import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/lib/firebase';
 import type { AiConfig } from '@/lib/types';
+import { WhatsAppConnection } from './WhatsAppConnection';
 
 interface AppLayoutProps {
     user: FirebaseUser;
@@ -35,6 +35,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
     const [activeView, setActiveView] = useState('conversas');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const userId = user.uid;
+    const userEmail = user.email || '';
     
     const { connectionStatus } = useConnectionStatus(userId);
     const [isAlertVisible, setIsAlertVisible] = useState(false);
@@ -76,8 +77,10 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
 
 
     useEffect(() => {
-        if (connectionStatus.status === 'disconnected') {
+        if (connectionStatus.status === 'disconnected' || connectionStatus.status === 'error') {
             setIsAlertVisible(true);
+        } else {
+            setIsAlertVisible(false);
         }
     }, [connectionStatus]);
 
@@ -89,6 +92,10 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
     };
 
     const renderActiveView = () => {
+        if (connectionStatus.status !== 'connected' && activeView === 'conversas') {
+            return <WhatsAppConnection userId={userId} userEmail={userEmail} />;
+        }
+
         switch (activeView) {
             case 'conversas':
                 return <ChatView userId={userId} />;
@@ -209,7 +216,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
                     
                      <main className={cn(
                         "flex-1 flex flex-col overflow-y-auto",
-                        activeView !== 'conversas' && 'p-4 md:p-8'
+                        (activeView !== 'conversas' && connectionStatus.status === 'connected') && 'p-4 md:p-8'
                     )}>
                         {renderActiveView()}
                     </main>
@@ -240,3 +247,5 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
         </Sheet>
     );
 };
+
+    

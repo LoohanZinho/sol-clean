@@ -10,6 +10,7 @@ import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInsta
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
+import { useEvolutionApiCredentials } from '@/hooks/useEvolutionApiCredentials';
 
 interface WhatsAppConnectionProps {
     userId: string;
@@ -228,3 +229,5 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         </>
     );
 };
+
+    

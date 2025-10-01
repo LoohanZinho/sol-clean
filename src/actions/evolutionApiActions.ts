@@ -584,14 +584,15 @@ export async function setWebhookForInstance(instanceName: string, userId: string
         const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook?userId=${userId}`;
 
         const body = {
+            url: webhookUrl,
             webhook: {
                 enabled: true,
                 url: webhookUrl,
-                webhookByEvents: false,
-                webhookBase64: true,
+                webhookByEvents: false, // Recommended to keep this false
                 events: [
                     "MESSAGES_UPSERT",
                     "CONNECTION_UPDATE",
+                    // Add other events if needed, but keep it minimal
                 ]
             }
         };
@@ -625,39 +626,37 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
         const { apiUrl, apiKey: globalApiKey } = globalCredentials;
         
+        // 1. Create Instance
         const createUrl = `${apiUrl.replace(/\/$/, '')}/instance/create`;
-
         try {
              await axios.post(createUrl, {
                 instanceName: userEmail,
-                integration: "WHATSAPP-BAILEYS",
-                qrcode: true, 
-            }, {
+                token: "", // Some versions might require a token, even if empty
+                qrcode: true,
+             }, {
                 headers: { 'Content-Type': 'application/json', 'apikey': globalApiKey }
             });
             logSystemInfo(userId, 'createWhatsAppInstance_success', `Instância ${userEmail} criada com sucesso.`, { instanceName: userEmail });
-
         } catch (error: any) {
-             if (axios.isAxiosError(error) && (error.response?.status === 409 || (error.response?.status === 403 && JSON.stringify(error.response.data).includes("is already in use")))) {
-                 logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Buscando chave existente.`, {});
+             if (axios.isAxiosError(error) && (error.response?.status === 409 || JSON.stringify(error.response.data).includes("already in use"))) {
+                 logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Prosseguindo para a conexão.`, {});
              } else {
-                 throw error; // Rethrow other errors
+                 throw error;
              }
         }
         
-        const { success, error } = await fetchAndSaveInstanceApiKey(userId, userEmail);
-        if (!success) {
-            throw new Error(error || "Falha ao buscar e salvar a chave da API da instância após a criação.");
-        }
-       
+        // 2. Set Webhook
         await setWebhookForInstance(userEmail, userId);
        
+        // 3. Connect and get QR Code
         const connectUrl = `${apiUrl.replace(/\/$/, '')}/instance/connect/${userEmail}`;
         const connectResponse = await axios.get(connectUrl, {
              headers: { 'apikey': globalApiKey }
         });
         
         const instanceData = connectResponse.data;
+        
+        // Check if already connected
         if (instanceData?.instance?.status === 'open') {
              return { success: true, state: 'open' };
         }
@@ -679,16 +678,11 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         let errorMessage = 'Ocorreu um erro ao criar a instância.';
         if (axios.isAxiosError(error) && error.response?.data) {
              const apiError = error.response.data as any;
-             if (apiError.response?.message && typeof apiError.response.message === 'string') {
-                 errorMessage = apiError.response.message;
-             } else if (apiError.message && typeof apiError.message === 'string') {
-                 errorMessage = apiError.message;
-             } else {
-                 errorMessage = JSON.stringify(apiError);
-             }
+             errorMessage = apiError.message || JSON.stringify(apiError);
         } else if (error instanceof Error) {
             errorMessage = error.message;
         }
+        await logSystemFailure(userId, 'createWhatsAppInstance_critical_failure', { message: errorMessage, stack: (error as any).stack }, { userEmail });
         return { success: false, error: errorMessage };
     }
 }
@@ -739,21 +733,20 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
         }
 
         const { apiUrl, apiKey: globalApiKey } = globalCredentials;
-        const url = `${apiUrl.replace(/\/$/, '')}/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`;
+        const url = `${apiUrl.replace(/\/$/, '')}/instance/fetchInstances/${instanceName}`;
 
         const response = await axios.get(url, {
             headers: { 'apikey': globalApiKey }
         });
 
-        if (!Array.isArray(response.data) || response.data.length === 0) {
+        if (!response.data || !response.data.instance) {
             throw new Error(`Instância '${instanceName}' não encontrada na API.`);
         }
         
-        const instanceData = response.data[0].instance;
-        const instanceApiKey = instanceData?.apikey;
+        const instanceApiKey = response.data.hash?.apikey;
 
         if (!instanceApiKey) {
-            throw new Error(`A chave de API para a instância '${instanceName}' não foi encontrada na resposta da API.`);
+            throw new Error(`A chave de API para a instância '${instanceName}' não foi encontrada na resposta da API (hash.apikey).`);
         }
 
         const adminFirestore = getAdminFirestore();
@@ -793,5 +786,7 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
 
     
 
+
+    
 
     
