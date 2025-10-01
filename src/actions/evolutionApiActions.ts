@@ -680,7 +680,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         }
 
         const pairingCode = connectResponse.data?.pairingCode;
-        const qrCodeBase64 = connectResponse.data?.code;
+        const qrCodeBase64 = connectResponse.data?.base64;
 
         if (pairingCode || qrCodeBase64) {
              return { 
@@ -806,3 +806,6 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
 
 
 
+
+
+    
