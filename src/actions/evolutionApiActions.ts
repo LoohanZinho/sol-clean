@@ -584,14 +584,16 @@ export async function setWebhookForInstance(instanceName: string, userId: string
         const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook?userId=${userId}`;
 
         const body = {
-            enabled: true,
-            url: webhookUrl,
-            webhookByEvents: false,
-            webhookBase64: true,
-            events: [
-                "MESSAGES_UPSERT",
-                "CONNECTION_UPDATE",
-            ]
+            webhook: {
+                enabled: true,
+                url: webhookUrl,
+                webhookByEvents: false,
+                webhookBase64: true,
+                events: [
+                    "MESSAGES_UPSERT",
+                    "CONNECTION_UPDATE",
+                ]
+            }
         };
 
         await axios.post(url, body, {
@@ -807,6 +809,9 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
 
 
 
+
+
+    
 
 
     
