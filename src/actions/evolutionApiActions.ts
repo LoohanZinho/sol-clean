@@ -1,4 +1,5 @@
 
+
 'use server';
 
 /**
@@ -595,7 +596,7 @@ export async function sendMediaMessage(params: {
 export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; base64?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE', logs: any[] }> {
     const logs: any[] = [];
     try {
-        const globalCredentials = await getUserEvolutionApiCredentials(userId);
+        const globalCredentials = await getGlobalEvolutionCredentials();
         if (!globalCredentials || !globalCredentials.apiUrl || !globalCredentials.apiKey) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas no painel de admin.');
         }
@@ -743,7 +744,7 @@ export async function checkInstanceConnectionState(instanceName: string, userId:
 
 export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: string): Promise<{ success: boolean; error?: string }> {
     try {
-        const globalCredentials = await getUserEvolutionApiCredentials(userId);
+        const globalCredentials = await getGlobalEvolutionCredentials();
         if (!globalCredentials) {
             throw new Error('Credenciais globais da Evolution API não estão configuradas.');
         }
