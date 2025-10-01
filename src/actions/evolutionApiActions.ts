@@ -166,7 +166,7 @@ async function getGlobalEvolutionApiCredentials(): Promise<{ apiUrl: string; api
     const docRef = adminFirestore.collection('system_settings').doc('evolutionApi');
     const docSnap = await docRef.get();
     
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
         const data = docSnap.data();
         if (data && data.apiUrl && data.apiKey) {
             return {
