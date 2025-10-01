@@ -774,64 +774,30 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
                 selectedConversation ? "hidden" : "flex",
                 isInfoPanelOpen && "md:w-[380px]"
             )}>
-                 <div className="h-16 flex items-center justify-between px-4 border-b border-border flex-shrink-0 relative overflow-hidden md:hidden">
-                    <AnimatePresence>
-                        {!isSearchVisible ? (
-                            <motion.div 
-                                key="title-with-menu"
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                transition={{ duration: 0.2 }}
-                                className="flex items-center gap-2"
-                            >
-                                <SheetTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="-ml-2">
-                                        <Menu className="h-6 w-6" />
-                                    </Button>
-                                </SheetTrigger>
-                                <h2 className="text-xl font-bold">Conversas</h2>
-                            </motion.div>
-                        ) : null}
-                    </AnimatePresence>
-                    <AnimatePresence>
-                        {isSearchVisible ? (
-                            <motion.div 
-                                key="search-input"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                transition={{ duration: 0.2 }}
-                                className="flex items-center gap-2 w-full"
-                            >
-                                <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setIsSearchVisible(false)}>
-                                    <ChevronLeft className="h-6 w-6" />
-                                </Button>
-                                <Input 
-                                    placeholder="Buscar..." 
-                                    className="h-9 text-base w-full"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    autoFocus
-                                />
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                key="search-icon"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                            >
-                                <Button variant="ghost" size="icon" onClick={() => setIsSearchVisible(true)}>
-                                    <Search className="h-6 w-6" />
-                                </Button>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+                <header className="h-16 flex items-center justify-between px-4 border-b border-border flex-shrink-0 md:hidden">
+                    <SheetTrigger asChild>
+                        <Button variant="ghost" size="icon" className="-ml-2">
+                            <Menu className="h-6 w-6" />
+                        </Button>
+                    </SheetTrigger>
+                    <h2 className="text-xl font-bold">Conversas</h2>
+                    <Button variant="ghost" size="icon" onClick={() => setIsSearchVisible(prev => !prev)}>
+                        <Search className="h-6 w-6" />
+                    </Button>
+                </header>
 
                 <div className="p-4 flex-shrink-0 space-y-4">
+                    {isSearchVisible && (
+                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+                            <Input 
+                                placeholder="Buscar..." 
+                                className="h-11 text-base w-full"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                autoFocus
+                            />
+                        </motion.div>
+                    )}
                      <div className="relative p-1 bg-muted rounded-full flex items-center w-full">
                         {TABS.map((tab) => (
                              <button

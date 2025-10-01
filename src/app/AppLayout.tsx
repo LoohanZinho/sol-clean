@@ -3,13 +3,13 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
-import { Users, Settings, ChevronLeft, LogOut, ChevronRight, Menu, X, AlertTriangle, FlaskConical, QrCode, Smartphone } from 'lucide-react';
+import { Users, Settings, ChevronLeft, LogOut, ChevronRight, Menu, X, AlertTriangle, FlaskConical, QrCode, Smartphone, Info } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatView } from '@/components/app/ChatView';
 import { SettingsPage } from '@/components/app/SettingsPage';
@@ -23,18 +23,71 @@ import { getFirebaseFirestore } from '@/lib/firebase';
 import type { AiConfig } from '@/lib/types';
 import { WhatsAppConnection } from '@/components/app/WhatsAppConnection';
 import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
-import { Loader2, ServerCrash, CheckCircle, RefreshCw } from 'lucide-react';
+import { Loader2, ServerCrash, CheckCircle, RefreshCw, Copy, Check } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 
-interface AppLayoutProps {
-    user: FirebaseUser;
-    onLogout: () => void;
-}
 
-const baseMenuItems = [
-    { id: 'conversas', icon: FaWhatsapp, label: 'Conversas' },
-    { id: 'contatos', icon: Users, label: 'Contatos' },
-    { id: 'ajustes', icon: Settings, label: 'Ajustes' },
-];
+const ConnectionLogDialog = ({ logs, isOpen, onClose }: { logs: any[], isOpen: boolean, onClose: () => void }) => {
+    const [hasCopied, setHasCopied] = useState(false);
+
+    const handleCopy = () => {
+        const logContent = logs.map(log => {
+            const request = log.request ? `--- REQUISIÇÃO (${log.step}) ---\nMétodo: ${log.request.method}\nURL: ${log.request.url}\nCabeçalhos: ${JSON.stringify(log.request.headers, null, 2)}\nCorpo: ${JSON.stringify(log.request.data, null, 2)}` : '';
+            const response = log.data ? `--- RESPOSTA (${log.status}) ---\nCorpo: ${JSON.stringify(log.data, null, 2)}` : `--- ERRO ---\n${log.error?.message || 'Erro desconhecido'}`;
+            return `${request}\n\n${response}`;
+        }).join('\n\n================================\n\n');
+        
+        navigator.clipboard.writeText(logContent.trim());
+        setHasCopied(true);
+        setTimeout(() => setHasCopied(false), 2000);
+    };
+
+    return (
+        <AlertDialog open={isOpen} onOpenChange={onClose}>
+            <AlertDialogContent className="max-w-4xl">
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Logs da Conexão em Tempo Real</AlertDialogTitle>
+                    <DialogDescription>
+                       Estes são os dados brutos de requisição e resposta da API durante a tentativa de conexão.
+                    </DialogDescription>
+                </AlertDialogHeader>
+                <div className="mt-4 max-h-[70vh] overflow-y-auto bg-muted/50 rounded-md p-4 border space-y-4">
+                    {logs.map((log, index) => (
+                         <div key={index} className="space-y-2">
+                            <h3 className="font-semibold text-lg border-b pb-1">{log.step}</h3>
+                             {log.request && (
+                                <div>
+                                    <h4 className="font-semibold mb-1">Requisição</h4>
+                                    <pre className="text-xs text-foreground/90 bg-black/20 p-2 rounded-md whitespace-pre-wrap break-all">
+                                        <code>{`Método: ${log.request.method}\nURL: ${log.request.url}\nCabeçalhos: ${JSON.stringify(log.request.headers, null, 2)}\nCorpo: ${JSON.stringify(log.request.data, null, 2)}`}</code>
+                                    </pre>
+                                </div>
+                            )}
+                             <div>
+                                 <h4 className="font-semibold mb-1">Resposta ({log.status})</h4>
+                                 <pre className={`text-xs p-2 rounded-md whitespace-pre-wrap break-all ${log.error ? 'bg-red-900/40 text-red-300' : 'bg-green-900/30 text-green-300'}`}>
+                                    <code>{log.data ? JSON.stringify(log.data, null, 2) : log.error?.message || 'Erro desconhecido'}</code>
+                                </pre>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <AlertDialogFooter>
+                    <Button variant="outline" onClick={handleCopy}>
+                        {hasCopied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                        {hasCopied ? 'Copiado!' : 'Copiar Tudo'}
+                    </Button>
+                    <AlertDialogAction onClick={onClose}>Fechar</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+};
+
 
 export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
     const [activeView, setActiveView] = useState('conversas');
@@ -54,6 +107,9 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
     const [isCheckingStatus, setIsCheckingStatus] = useState(false);
     const [isFinalizing, setIsFinalizing] = useState(false);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    const [connectionLogs, setConnectionLogs] = useState<any[]>([]);
+    const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
 
     const handleViewChange = (view: string) => {
         setActiveView(view);
@@ -93,6 +149,8 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
     useEffect(() => {
         if (connectionStatus.status === 'disconnected') {
             setIsAlertVisible(true);
+        } else {
+            setIsAlertVisible(false);
         }
     }, [connectionStatus]);
 
@@ -139,6 +197,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
         pollingIntervalRef.current = setInterval(async () => {
             try {
                 const result = await checkInstanceConnectionState(user.email!);
+                 setConnectionLogs(prev => [...prev, { step: 'Verificando Status', ...result, status: result.state, data: result, request: { method: 'GET', url: `/instance/connectionState/${user.email}` } }]);
                 if (result.state === 'open') {
                     await handleSuccessfulConnection();
                 } else if (result.state === 'close') {
@@ -169,10 +228,12 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
         setQrCodeBase64(null);
         setIsConnected(false);
         setIsDialogOpen(true);
+        setConnectionLogs([]);
         stopPolling();
 
         try {
             const result = await createWhatsAppInstance(user.email, userId);
+            setConnectionLogs(result.logs || []);
             if (result.success) {
                 if (result.state === 'open') {
                     await handleSuccessfulConnection();
@@ -199,7 +260,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
     const renderActiveView = () => {
         switch (activeView) {
             case 'conversas':
-                return <ChatView userId={userId} />;
+                return <ChatView userId={userId} userEmail={user.email!} />;
             case 'ajustes':
                 return <SettingsPage userId={userId} onLogout={onLogout} />;
              case 'contatos':
@@ -309,7 +370,7 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
                                 <div className="flex items-center gap-3">
                                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                                     <p className="text-sm font-medium">
-                                        WhatsApp Desconectado. 
+                                        WhatsApp Desconectado.
                                         <button onClick={handleConnect} className="underline font-bold ml-1 hover:text-white">
                                             Clique aqui para conectar.
                                         </button>
@@ -427,8 +488,20 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
                              </Tabs>
                         )}
                     </div>
+                    {isOwner && connectionLogs.length > 0 && (
+                        <DialogFooter>
+                             <Button variant="secondary" onClick={() => setIsLogDialogOpen(true)}>
+                                Ver Logs da Conexão
+                             </Button>
+                        </DialogFooter>
+                    )}
                 </DialogContent>
             </Dialog>
+            <ConnectionLogDialog 
+                logs={connectionLogs}
+                isOpen={isLogDialogOpen}
+                onClose={() => setIsLogDialogOpen(false)}
+            />
         </>
     );
 };
