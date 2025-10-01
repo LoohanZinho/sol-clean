@@ -14,7 +14,7 @@ export function useUser() {
     // This hook no longer uses onAuthStateChanged.
     // The user state is now managed in the root page component.
     // It returns null, and components should get the user object via props.
-    const storedUser = sessionStorage.getItem('user');
+    const storedUser = localStorage.getItem('user');
     if (storedUser) {
         try {
             const parsedUser = JSON.parse(storedUser);

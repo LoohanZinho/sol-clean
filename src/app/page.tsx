@@ -53,8 +53,8 @@ export default function Home() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Attempt to load user from session storage for persistence
-        const storedUser = sessionStorage.getItem('user');
+        // Attempt to load user from local storage for persistence
+        const storedUser = localStorage.getItem('user');
         if (storedUser) {
             setUser(JSON.parse(storedUser));
         }
@@ -88,7 +88,7 @@ export default function Home() {
                     email: userDoc.data().email,
                 };
                 setUser(userData);
-                sessionStorage.setItem('user', JSON.stringify(userData)); // Save to session
+                localStorage.setItem('user', JSON.stringify(userData)); // Save to session
             }
         } catch (err: any) {
             console.error("Login error:", err);
@@ -100,7 +100,7 @@ export default function Home() {
 
     const handleLogout = async () => {
         setUser(null);
-        sessionStorage.removeItem('user'); // Clear from session
+        localStorage.removeItem('user'); // Clear from session
     }
 
     if (loading) {
