@@ -104,7 +104,7 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
                     }
                 }
             } else {
-                setError(result.error ? JSON.stringify(result.error, null, 2) : 'Ocorreu um erro desconhecido.');
+                setError(result.error ? result.error : 'Ocorreu um erro desconhecido.');
             }
         } catch (e: any) {
             setError(e.message || 'Falha ao conectar com o servidor.');
@@ -229,3 +229,5 @@ export const WhatsAppConnection = ({ userId, userEmail }: WhatsAppConnectionProp
         </>
     );
 };
+
+    
