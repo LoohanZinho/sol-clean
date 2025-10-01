@@ -39,10 +39,14 @@ export const WhatsAppConnection = ({ userId, userEmail, isOpen, onClose, onConne
     };
     
     useEffect(() => {
+        // Start connection process when the dialog opens
+        if (isOpen) {
+            handleConnect();
+        }
         return () => {
             stopPolling();
         };
-    }, []);
+    }, [isOpen]);
 
     const handleSuccessfulConnection = async () => {
         stopPolling();
@@ -138,12 +142,8 @@ export const WhatsAppConnection = ({ userId, userEmail, isOpen, onClose, onConne
                         </CardDescription>
                     </CardHeader>
                     <CardFooter>
-                        <Button onClick={handleConnect} className="w-full" size="lg" disabled={isLoading}>
-                            {isLoading ? (
-                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                            ) : (
-                                <FaWhatsapp className="mr-2 h-5 w-5" />
-                            )}
+                        <Button onClick={onConnectClick} className="w-full" size="lg">
+                           <FaWhatsapp className="mr-2 h-5 w-5" />
                             Conectar ao WhatsApp
                         </Button>
                     </CardFooter>
