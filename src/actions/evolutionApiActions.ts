@@ -584,9 +584,10 @@ export async function setWebhookForInstance(instanceName: string, userId: string
         const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhook?userId=${userId}`;
 
         const body = {
+            enabled: true,
             url: webhookUrl,
-            webhook_by_events: true,
-            webhook_base64: true,
+            webhookByEvents: false,
+            webhookBase64: true,
             events: [
                 "MESSAGES_UPSERT",
                 "CONNECTION_UPDATE",
@@ -674,13 +675,13 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
              headers: { 'apikey': globalApiKey }
         });
         
-        const instanceStatus = connectResponse.data?.instance?.status;
-        if (instanceStatus === 'open') {
+        const instanceData = connectResponse.data;
+        if (instanceData?.instance?.status === 'open') {
              return { success: true, state: 'open' };
         }
 
-        const pairingCode = connectResponse.data?.pairingCode;
-        const qrCodeBase64 = connectResponse.data?.base64;
+        const pairingCode = instanceData?.pairingCode;
+        const qrCodeBase64 = instanceData?.base64;
 
         if (pairingCode || qrCodeBase64) {
              return { 
