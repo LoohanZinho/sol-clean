@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -126,6 +127,22 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
     }
     
     const isOwner = useMemo(() => user.email === 'lohansantosborges@gmail.com', [user.email]);
+    
+    const baseMenuItems = [
+        { id: 'conversas', icon: FaWhatsapp, label: 'Conversas' },
+        { id: 'contatos', icon: Users, label: 'Contatos' },
+        { id: 'ajustes', icon: Settings, label: 'Ajustes' },
+    ];
+
+    const menuItems = useMemo(() => {
+        const items = [...baseMenuItems];
+
+        if (isOwner) {
+            items.push({ id: 'testes', icon: FlaskConical, label: 'Testes' });
+        }
+        return items;
+    }, [isOwner, agentRole, baseMenuItems]);
+
 
     useEffect(() => {
         if (!userId) return;
@@ -144,21 +161,6 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
         
         return () => unsubscribe();
     }, [userId]);
-
-    const baseMenuItems = [
-        { id: 'conversas', icon: FaWhatsapp, label: 'Conversas' },
-        { id: 'contatos', icon: Users, label: 'Contatos' },
-        { id: 'ajustes', icon: Settings, label: 'Ajustes' },
-    ];
-
-    const menuItems = useMemo(() => {
-        const items = [...baseMenuItems];
-
-        if (isOwner) {
-            items.push({ id: 'testes', icon: FlaskConical, label: 'Testes' });
-        }
-        return items;
-    }, [isOwner, agentRole]);
 
 
     useEffect(() => {
@@ -254,8 +256,8 @@ export const AppLayout = ({ user, onLogout }: AppLayoutProps) => {
                     await handleSuccessfulConnection();
                 } else {
                     setPairingCode(result.pairingCode || null);
-                    setQrCodeBase64(result.qrCodeBase64 || null);
-                    if (result.pairingCode || result.qrCodeBase64) {
+                    setQrCodeBase64(result.base64 || null);
+                    if (result.pairingCode || result.base64) {
                         startPolling();
                     } else {
                         setError('Não foi possível obter o código de pareamento ou QR Code da API.');

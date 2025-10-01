@@ -644,7 +644,7 @@ export async function setWebhookForInstance(instanceName: string, userId: string
 }
 
 
-export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; qrCodeBase64?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE', logs: any[] }> {
+export async function createWhatsAppInstance(userEmail: string, userId: string): Promise<{ success: boolean; pairingCode?: string; base64?: string; error?: string, state?: 'open' | 'close' | 'connecting' | 'SCAN_QR_CODE', logs: any[] }> {
     const logs: any[] = [];
     try {
         const globalCredentials = await getGlobalEvolutionCredentials();
@@ -709,13 +709,13 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
         }
 
         const pairingCode = instanceData?.pairingCode;
-        const qrCodeBase64 = instanceData?.base64;
+        const base64 = instanceData?.base64;
 
-        if (pairingCode || qrCodeBase64) {
+        if (pairingCode || base64) {
              return { 
                 success: true, 
                 pairingCode: pairingCode, 
-                qrCodeBase64: qrCodeBase64 ? `data:image/png;base64,${qrCodeBase64}` : undefined,
+                base64: base64 ? `data:image/png;base64,${base64}` : undefined,
                 logs
             };
         }
@@ -853,6 +853,7 @@ export async function fetchAndSaveInstanceApiKey(userId: string, instanceName: s
     
 
     
+
 
 
 
