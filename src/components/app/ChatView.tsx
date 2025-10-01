@@ -598,7 +598,7 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
             if (!isUserConnected) {
                 return (
                      <div className="hidden md:flex flex-1">
-                        <WhatsAppConnection userId={userId} userEmail={userEmail} />
+                        <WhatsAppConnection userId={userId} userEmail={userEmail} onConnectClick={() => setIsConnectDialogOpen(true)} />
                     </div>
                 );
             }
@@ -1028,6 +1028,13 @@ export const ChatView = ({ userId, userEmail }: ChatViewProps) => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            
+             <WhatsAppConnection
+                userId={userId}
+                userEmail={userEmail}
+                isOpen={isConnectDialogOpen}
+                onClose={() => setIsConnectDialogOpen(false)}
+            />
         </div>
     );
 }
