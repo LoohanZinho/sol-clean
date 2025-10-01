@@ -91,11 +91,16 @@ async function getGlobalEvolutionCredentials() {
     }
 }
 
-async function saveGlobalEvolutionCredentials(credentials: { apiUrl: string; apiKey: string }) {
+async function saveGlobalEvolutionCredentials(credentials: { apiUrl: string; apiKey: string }, userId: string) {
     try {
         const firestore = getFirebaseFirestore();
         const globalDocRef = doc(firestore, 'system_settings', 'evolutionApi');
         await setDoc(globalDocRef, credentials, { merge: true });
+
+        // Also save to the user's settings
+        const userDocRef = doc(firestore, 'users', userId, 'settings', 'evolutionApiCredentials');
+        await setDoc(userDocRef, credentials, { merge: true });
+
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -190,7 +195,16 @@ const AdminPanel = () => {
         e.preventDefault();
         setSavingCreds(true);
         setCredsError(null);
-        const result = await saveGlobalEvolutionCredentials({ apiUrl, apiKey });
+        // Assuming there is at least one user, save it to the first user for simplicity
+        // In a real multi-user admin panel, you would have a way to select which user
+        const firstUserId = users[0]?.id;
+        if (!firstUserId) {
+            setCredsError("Nenhum usuário encontrado para associar as credenciais.");
+            setSavingCreds(false);
+            return;
+        }
+
+        const result = await saveGlobalEvolutionCredentials({ apiUrl, apiKey }, firstUserId);
         if (!result.success) {
             setCredsError(result.error || 'Ocorreu um erro ao salvar as credenciais.');
         }
