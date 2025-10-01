@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -7,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Loader2, ServerCrash, CheckCircle, RefreshCw, Smartphone, QrCode } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
-import { createWhatsAppInstance, checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
+import { createWhatsAppInstanceAction } from '@/actions/connectionActions';
+import { checkInstanceConnectionState, fetchAndSaveInstanceApiKey } from '@/actions/evolutionApiActions';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
@@ -95,7 +95,7 @@ export const WhatsAppConnection = ({ userId, userEmail, isOpen, onClose, onConne
         stopPolling();
 
         try {
-            const result = await createWhatsAppInstance(userEmail, userId);
+            const result = await createWhatsAppInstanceAction({ userEmail, userId });
             if (result.success) {
                 if (result.state === 'open') {
                     await handleSuccessfulConnection();
