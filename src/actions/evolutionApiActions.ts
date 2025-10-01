@@ -640,9 +640,9 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
                 return { success: true, state: 'open', logs };
             }
 
-            const pairingCode = instanceData?.pairingCode;
-            const base64 = instanceData?.base64;
-
+            const pairingCode = instanceData?.qrcode?.pairingCode;
+            const base64 = instanceData?.qrcode?.base64;
+            
             if (pairingCode || base64) {
                 return { 
                     success: true, 
@@ -655,7 +655,7 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
 
         } catch (error: any) {
             const axiosError = error as AxiosError<any>;
-             if (axiosError.response && (axiosError.response.status === 409 || (error.response?.data && JSON.stringify(error.response.data).includes("already exists")))) {
+            if (axiosError.response && (axiosError.response.status === 409 || (error.response?.data && JSON.stringify(error.response.data).includes("already exists")))) {
                 logs.push({ step: '1. Criar Instância (Falha)', status: 409, data: axiosError.response?.data, error: { message: 'Instância já existe' } });
                 logSystemInfo(userId, 'createWhatsAppInstance_already_exists', `A instância ${userEmail} já existe. Tentando conectar para obter QR.`, {});
                 
@@ -671,9 +671,10 @@ export async function createWhatsAppInstance(userEmail: string, userId: string):
                     await fetchAndSaveInstanceApiKey(userId, userEmail);
                     return { success: true, state: 'open', logs };
                 }
+                
+                const pairingCode = instanceData?.qrcode?.pairingCode;
+                const base64 = instanceData?.qrcode?.base64;
 
-                const pairingCode = instanceData?.pairingCode;
-                const base64 = instanceData?.base64;
                 if (pairingCode || base64) {
                     return { 
                         success: true, 
